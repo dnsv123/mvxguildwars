@@ -30,6 +30,7 @@ const MAX_TX_PER_WALLET  = 20_000;     // Window B budget
 const DURATION_MINUTES   = 31;
 const STATS_INTERVAL_MS  = 5_000;
 const PRE_WARM_ROUNDS    = 3;          // pre-sign 3 rounds per wallet before firing
+const WINDOW_B_START     = "2026-03-15T17:00:00Z"; // auto-wait until this time
 // ═══════════════════════════════════════════════════════════════
 
 interface WalletEntry { address: string; privateKey: string; }
@@ -182,6 +183,29 @@ async function main() {
   const chainID = networkConfig.ChainID;
   console.log(`🌐 Chain: ${chainID}`);
 
+  // ─── AUTO-WAIT: countdown until 2 min before Window B ──────
+  const windowBTime = new Date(WINDOW_B_START).getTime();
+  const prepTime = windowBTime - 2 * 60 * 1000; // start prep 2 min before
+  const nowMs = Date.now();
+
+  if (nowMs < prepTime) {
+    const waitSec = Math.round((prepTime - nowMs) / 1000);
+    console.log(`\n⏳ Waiting until 16:58 UTC to start prep (${Math.floor(waitSec/60)}m ${waitSec%60}s)...`);
+
+    const countdownTimer = setInterval(() => {
+      const rem = Math.round((prepTime - Date.now()) / 1000);
+      if (rem > 0) {
+        const m = Math.floor(rem / 60);
+        const s = rem % 60;
+        process.stdout.write(`\r   ⏳ Prep starts in ${m}m ${s.toString().padStart(2, "0")}s...  `);
+      }
+    }, 1000);
+
+    await new Promise(r => setTimeout(r, Math.max(0, prepTime - Date.now())));
+    clearInterval(countdownTimer);
+    console.log(`\n✅ Prep time! Fetching nonces + pre-warming...\n`);
+  }
+
   // Fetch nonces
   console.log(`⏳ Fetching nonces...`);
   const sem = new Semaphore(100);
@@ -201,9 +225,8 @@ async function main() {
   const txComputer = new TransactionComputer();
   const preWarmStart = Date.now();
 
-  const allPreWarmed: Transaction[][][] = []; // [walletIdx][roundIdx][txs]
+  const allPreWarmed: Transaction[][][] = [];
 
-  // Process wallets in chunks to avoid memory pressure
   const CHUNK = 50;
   for (let c = 0; c < wallets.length; c += CHUNK) {
     const chunkEnd = Math.min(c + CHUNK, wallets.length);
@@ -234,11 +257,17 @@ async function main() {
   }
 
   const preWarmSec = ((Date.now() - preWarmStart) / 1000).toFixed(1);
-  console.log(`\n✅ Pre-warm complete in ${preWarmSec}s — ready to blast!\n`);
+  console.log(`\n✅ Pre-warm complete in ${preWarmSec}s — ${(PRE_WARM_ROUNDS * BATCH_SIZE * wallets.length).toLocaleString()} txs ready!\n`);
 
-  // Countdown
-  console.log(`🚀 FIRING IN 3 SECONDS...`);
-  await new Promise(r => setTimeout(r, 3000));
+  // ─── WAIT for exact Window B start time ───
+  const nowMs2 = Date.now();
+  if (nowMs2 < windowBTime) {
+    const waitSec = Math.round((windowBTime - nowMs2) / 1000);
+    console.log(`⏳ Pre-warmed & ready! Waiting ${waitSec}s for 17:00 UTC...`);
+    await new Promise(r => setTimeout(r, Math.max(0, windowBTime - Date.now())));
+  }
+
+  console.log(`\n🚀 WINDOW B — GO GO GO!`);
 
   const startTime = Date.now();
   endTime = startTime + DURATION_MINUTES * 60 * 1000;
