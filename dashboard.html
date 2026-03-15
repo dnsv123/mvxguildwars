@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚔️ Guild Wars — Transaction Sprint Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --surface: #12182b;
+      --card: #1a2240;
+      --border: #2a3555;
+      --text: #e4e8f0;
+      --muted: #6b7a9e;
+      --accent: #00d4ff;
+      --green: #00e676;
+      --orange: #ff9100;
+      --red: #ff5252;
+      --purple: #b388ff;
+      --gold: #ffd740;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .bg-glow {
+      position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .container {
+      max-width: 1200px; margin: 0 auto; padding: 24px;
+      position: relative; z-index: 1;
+    }
+
+    /* Header */
+    .header {
+      text-align: center; padding: 32px 0 24px;
+    }
+    .header h1 {
+      font-size: 2.2rem; font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -1px;
+    }
+    .header p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+
+    /* UTC Clock */
+    .clock-bar {
+      display: flex; justify-content: center; align-items: center; gap: 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 28px; margin-bottom: 24px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .clock-bar .utc-time { font-size: 2rem; font-weight: 700; color: var(--accent); }
+    .clock-bar .utc-label { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; }
+
+    /* Phase Timeline */
+    .timeline {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+      margin-bottom: 24px;
+    }
+    .phase-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; text-align: center;
+      transition: all 0.4s ease; position: relative; overflow: hidden;
+    }
+    .phase-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 25px rgba(0,212,255,0.2), inset 0 0 25px rgba(0,212,255,0.05);
+    }
+    .phase-card.active::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+      animation: shimmer 2s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.5; } 50% { opacity: 1; }
+    }
+    .phase-card.done { border-color: var(--green); opacity: 0.7; }
+    .phase-card .phase-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .phase-card .phase-name { font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; }
+    .phase-card .phase-time { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+    .phase-card .phase-countdown {
+      font-family: 'JetBrains Mono', monospace; font-size: 1.2rem;
+      font-weight: 700; margin-top: 8px; color: var(--gold);
+    }
+    .phase-card.active .phase-countdown { color: var(--accent); }
+    .phase-card.done .phase-countdown { color: var(--green); }
+    .phase-status-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; margin-top: 6px;
+    }
+    .badge-waiting { background: rgba(107,122,158,0.2); color: var(--muted); }
+    .badge-active { background: rgba(0,212,255,0.15); color: var(--accent); animation: pulse 1.5s infinite; }
+    .badge-done { background: rgba(0,230,118,0.15); color: var(--green); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; text-align: center;
+    }
+    .stat-card .stat-label {
+      font-size: 0.75rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 1.5px; margin-bottom: 8px;
+    }
+    .stat-card .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.8rem; font-weight: 900;
+    }
+    .stat-card .stat-sub {
+      font-size: 0.75rem; color: var(--muted); margin-top: 4px;
+    }
+    .val-accent { color: var(--accent); }
+    .val-green { color: var(--green); }
+    .val-orange { color: var(--orange); }
+    .val-gold { color: var(--gold); }
+
+    /* GL Wallet Input */
+    .gl-input-bar {
+      display: flex; gap: 10px; margin-bottom: 24px;
+    }
+    .gl-input-bar input {
+      flex: 1; background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; color: var(--text);
+      font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      outline: none; transition: border 0.3s;
+    }
+    .gl-input-bar input:focus { border-color: var(--accent); }
+    .gl-input-bar button {
+      background: linear-gradient(135deg, var(--accent), #0088cc);
+      border: none; border-radius: 10px; padding: 12px 24px;
+      color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .gl-input-bar button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(0,212,255,0.3);
+    }
+
+    /* Links Bar */
+    .links-bar {
+      display: flex; justify-content: center; gap: 16px; margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .link-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 20px; color: var(--text); text-decoration: none;
+      font-size: 0.85rem; font-weight: 600;
+      transition: all 0.3s;
+    }
+    .link-btn:hover {
+      border-color: var(--accent); background: rgba(0,212,255,0.05);
+      transform: translateY(-1px);
+    }
+    .link-btn.primary {
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(179,136,255,0.15));
+      border-color: var(--accent);
+    }
+
+    /* Progress Bar */
+    .progress-section { margin-bottom: 24px; }
+    .progress-label {
+      display: flex; justify-content: space-between; margin-bottom: 6px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .progress-bar {
+      height: 8px; background: var(--card); border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .progress-fill {
+      height: 100%; border-radius: 10px; transition: width 0.5s ease;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+    }
+
+    /* Log */
+    .log-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+    }
+    .log-section h3 { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .log-entries {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+      max-height: 200px; overflow-y: auto; line-height: 1.7;
+    }
+    .log-entries::-webkit-scrollbar { width: 4px; }
+    .log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .log-entry { color: var(--muted); }
+    .log-entry.success { color: var(--green); }
+    .log-entry.info { color: var(--accent); }
+    .log-entry.warn { color: var(--orange); }
+
+    @media (max-width: 900px) {
+      .timeline { grid-template-columns: repeat(3, 1fr); }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .timeline { grid-template-columns: 1fr 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="container">
+
+    <div class="header">
+      <h1>⚔️ Transaction Sprint Dashboard</h1>
+      <p>Battle of Nodes — Guild Wars Challenge 1 · March 15, 2026</p>
+    </div>
+
+    <div class="clock-bar">
+      <span class="utc-label">UTC</span>
+      <span class="utc-time" id="utcClock">--:--:--</span>
+    </div>
+
+    <!-- Phase Timeline -->
+    <div class="timeline" id="timeline">
+      <div class="phase-card" data-start="2026-03-15T15:45:00Z" data-end="2026-03-15T16:00:00Z" id="phase-distribute">
+        <div class="phase-icon">📦</div>
+        <div class="phase-name">Distribute</div>
+        <div class="phase-time">15:45 UTC</div>
+        <div class="phase-countdown" id="cd-distribute">--:--</div>
+        <div class="phase-status-badge badge-waiting" id="badge-distribute">WAITING</div>
+      </div>
+      <div class="phase-card" data-start="2026-03-15T16:00:00Z" data-end="2026-03-15T16:30:00Z" id="phase-windowA">
+        <div class="phase-icon">🔥</div>
+        <div class="phase-name">Window A</div>
+        <div class="phase-time">16:00 – 16:30</div>
+        <div class="phase-countdown" id="cd-windowA">--:--</div>
+        <div class="phase-status-badge badge-waiting" id="badge-windowA">WAITING</div>
+      </div>
+      <div class="phase-card" data-start="2026-03-15T16:30:00Z" data-end="2026-03-15T17:00:00Z" id="phase-break">
+        <div class="phase-icon">⏸️</div>
+        <div class="phase-name">Break</div>
+        <div class="phase-time">16:30 – 17:00</div>
+        <div class="phase-countdown" id="cd-break">--:--</div>
+        <div class="phase-status-badge badge-waiting" id="badge-break">WAITING</div>
+      </div>
+      <div class="phase-card" data-start="2026-03-15T17:00:00Z" data-end="2026-03-15T17:30:00Z" id="phase-windowB">
+        <div class="phase-icon">🔥</div>
+        <div class="phase-name">Window B</div>
+        <div class="phase-time">17:00 – 17:30</div>
+        <div class="phase-countdown" id="cd-windowB">--:--</div>
+        <div class="phase-status-badge badge-waiting" id="badge-windowB">WAITING</div>
+      </div>
+      <div class="phase-card" data-start="2026-03-15T17:30:00Z" data-end="2026-03-16T05:30:00Z" id="phase-content">
+        <div class="phase-icon">📝</div>
+        <div class="phase-name">Content</div>
+        <div class="phase-time">17:30 – 05:30+1</div>
+        <div class="phase-countdown" id="cd-content">--:--</div>
+        <div class="phase-status-badge badge-waiting" id="badge-content">WAITING</div>
+      </div>
+    </div>
+
+    <!-- GL Wallet Input -->
+    <div class="gl-input-bar">
+      <input type="text" id="glAddress" placeholder="Paste GL Wallet address (erd1...)" />
+      <button onclick="startTracking()">Track Wallet</button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">GL Balance</div>
+        <div class="stat-value val-accent" id="glBalance">—</div>
+        <div class="stat-sub">EGLD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">GL Tx Count</div>
+        <div class="stat-value val-green" id="glTxCount">—</div>
+        <div class="stat-sub">sent from GL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Fee Budget Used (est.)</div>
+        <div class="stat-value val-orange" id="feeBudget">—</div>
+        <div class="stat-sub">EGLD</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Current Phase</div>
+        <div class="stat-value val-gold" id="currentPhase">—</div>
+        <div class="stat-sub" id="phaseTimer">—</div>
+      </div>
+    </div>
+
+    <!-- Milestone Progress -->
+    <div class="progress-section">
+      <div class="progress-label">
+        <span>Milestone: 1,000,000 transactions</span>
+        <span id="milestonePercent">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="milestoneFill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Links -->
+    <div class="links-bar">
+      <a class="link-btn primary" href="https://bon.multiversx.com/guild-wars" target="_blank">🏆 Live Scores</a>
+      <a class="link-btn" href="https://bon-explorer.multiversx.com" target="_blank">🔍 Explorer</a>
+      <a class="link-btn" href="https://gateway.battleofnodes.com/network/config" target="_blank">⚙️ Gateway Config</a>
+      <a class="link-btn" href="https://api.battleofnodes.com/docs" target="_blank">📄 API Docs</a>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="log-section">
+      <h3>📋 Activity Log</h3>
+      <div class="log-entries" id="logEntries">
+        <div class="log-entry info">Dashboard loaded. Waiting for challenge timeline...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GATEWAY = "https://gateway.battleofnodes.com";
+    const API = "https://api.battleofnodes.com";
+
+    const PHASES = [
+      { id: "distribute", start: "2026-03-15T15:45:00Z", end: "2026-03-15T16:00:00Z" },
+      { id: "windowA",    start: "2026-03-15T16:00:00Z", end: "2026-03-15T16:30:00Z" },
+      { id: "break",      start: "2026-03-15T16:30:00Z", end: "2026-03-15T17:00:00Z" },
+      { id: "windowB",    start: "2026-03-15T17:00:00Z", end: "2026-03-15T17:30:00Z" },
+      { id: "content",    start: "2026-03-15T17:30:00Z", end: "2026-03-16T05:30:00Z" },
+    ];
+
+    let glAddr = "";
+    let pollInterval = null;
+
+    // UTC Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("utcClock").textContent =
+        now.toISOString().slice(11, 19);
+    }
+
+    // Phase countdowns
+    function updatePhases() {
+      const now = Date.now();
+      let currentPhaseName = "Pre-Challenge";
+
+      PHASES.forEach((p) => {
+        const start = new Date(p.start).getTime();
+        const end = new Date(p.end).getTime();
+        const card = document.getElementById(`phase-${p.id}`);
+        const cd = document.getElementById(`cd-${p.id}`);
+        const badge = document.getElementById(`badge-${p.id}`);
+
+        if (now < start) {
+          // Waiting
+          card.className = "phase-card";
+          badge.className = "phase-status-badge badge-waiting";
+          badge.textContent = "WAITING";
+          const diff = start - now;
+          cd.textContent = formatCountdown(diff);
+        } else if (now >= start && now < end) {
+          // Active
+          card.className = "phase-card active";
+          badge.className = "phase-status-badge badge-active";
+          badge.textContent = "ACTIVE";
+          const remaining = end - now;
+          cd.textContent = formatCountdown(remaining);
+          currentPhaseName = card.querySelector(".phase-name").textContent;
+        } else {
+          // Done
+          card.className = "phase-card done";
+          badge.className = "phase-status-badge badge-done";
+          badge.textContent = "DONE";
+          cd.textContent = "✓";
+        }
+      });
+
+      document.getElementById("currentPhase").textContent = currentPhaseName;
+
+      // Update phase timer sub-text
+      const activePhase = PHASES.find(p => {
+        const s = new Date(p.start).getTime();
+        const e = new Date(p.end).getTime();
+        return now >= s && now < e;
+      });
+      if (activePhase) {
+        const rem = new Date(activePhase.end).getTime() - now;
+        document.getElementById("phaseTimer").textContent = formatCountdown(rem) + " remaining";
+      } else {
+        const nextPhase = PHASES.find(p => new Date(p.start).getTime() > now);
+        if (nextPhase) {
+          const until = new Date(nextPhase.start).getTime() - now;
+          document.getElementById("phaseTimer").textContent = "Next in " + formatCountdown(until);
+        } else {
+          document.getElementById("phaseTimer").textContent = "Challenge complete";
+        }
+      }
+    }
+
+    function formatCountdown(ms) {
+      if (ms <= 0) return "00:00";
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+      return `${pad(m)}:${pad(s)}`;
+    }
+
+    function pad(n) { return n.toString().padStart(2, "0"); }
+
+    // Wallet polling
+    function startTracking() {
+      const input = document.getElementById("glAddress");
+      glAddr = input.value.trim();
+      if (!glAddr.startsWith("erd1")) {
+        addLog("warn", "Invalid address. Must start with erd1...");
+        return;
+      }
+      addLog("success", "Tracking GL wallet: " + glAddr.slice(0, 20) + "...");
+      if (pollInterval) clearInterval(pollInterval);
+      fetchWalletData();
+      pollInterval = setInterval(fetchWalletData, 6000);
+    }
+
+    async function fetchWalletData() {
+      try {
+        const res = await fetch(`${GATEWAY}/address/${glAddr}`);
+        const json = await res.json();
+        const data = json.data?.account;
+        if (!data) return;
+
+        const balance = (BigInt(data.balance) / BigInt("1000000000000000000"));
+        const remainder = BigInt(data.balance) % BigInt("1000000000000000000");
+        const decimals = (Number(remainder) / 1e18).toFixed(4).slice(1);
+        document.getElementById("glBalance").textContent = balance.toString() + decimals;
+        document.getElementById("glTxCount").textContent = data.nonce.toLocaleString();
+      } catch (e) {
+        // silently retry
+      }
+
+      // Try to get tx count from API
+      try {
+        const res = await fetch(`${API}/accounts/${glAddr}/transactions/count`);
+        const count = await res.json();
+        if (typeof count === "number") {
+          document.getElementById("glTxCount").textContent = count.toLocaleString();
+          const fees = (count * 0.00005).toFixed(4);
+          document.getElementById("feeBudget").textContent = fees;
+
+          // Milestone
+          const pct = Math.min(100, (count / 1000000) * 100);
+          document.getElementById("milestonePercent").textContent = pct.toFixed(1) + "%";
+          document.getElementById("milestoneFill").style.width = pct + "%";
+        }
+      } catch (e) { /* retry */ }
+    }
+
+    function addLog(type, msg) {
+      const entries = document.getElementById("logEntries");
+      const now = new Date().toISOString().slice(11, 19);
+      const div = document.createElement("div");
+      div.className = `log-entry ${type}`;
+      div.textContent = `[${now}] ${msg}`;
+      entries.prepend(div);
+      if (entries.children.length > 50) entries.removeChild(entries.lastChild);
+    }
+
+    // Main loop
+    setInterval(updateClock, 200);
+    setInterval(updatePhases, 500);
+    updateClock();
+    updatePhases();
+  </script>
+</body>
+</html>
