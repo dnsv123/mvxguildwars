@@ -1,14 +1,15 @@
 /**
- * 🔥 OPTIMIZED Window B Fire Script
+ * 🚀 ULTRA-OPTIMIZED Window B — MAX THROUGHPUT
  * 
- * Key improvements over orchestrator:
- *   - 3x concurrency (150 vs 50 parallel sends)
- *   - 2x batch size (200 vs 100 txs per round)
- *   - Parallel signing (Promise.all instead of sequential await)
- *   - Multiple provider instances for connection pooling
- *   - Budget: 20,000 tx/wallet (500 EGLD ÷ 0.00005)
+ * Optimizations vs previous scripts:
+ *   1. PIPELINE: signs next batch WHILE current batch is in-flight
+ *   2. PRE-WARM: pre-signs first 2 rounds per wallet before firing
+ *   3. Concurrency: 200 parallel HTTP sends
+ *   4. Max sockets: 400, keepAlive
+ *   5. Parallel signing: Promise.all for entire batch
+ *   6. Batch size: 100 (proven to work with gateway)
  * 
- * Usage: npx ts-node scripts/4_fire_windowB.ts
+ * Usage at 17:00 UTC:  npx ts-node --max-old-space-size=4096 scripts/4_fire_windowB.ts
  */
 
 import * as fs from "fs";
@@ -23,11 +24,12 @@ const GATEWAY_URL        = "https://gateway.battleofnodes.com";
 const TX_VALUE           = BigInt(0);
 const GAS_LIMIT          = BigInt(50_000);
 const GAS_PRICE          = BigInt(1_000_000_000);
-const BATCH_SIZE         = 200;       // ⬆️ doubled
-const MAX_CONCURRENT     = 150;       // ⬆️ tripled
-const MAX_TX_PER_WALLET  = 20_000;    // Window B budget
-const DURATION_MINUTES   = 31;        // 30 min + 1 min buffer
+const BATCH_SIZE         = 100;        // proven to work with gateway
+const MAX_CONCURRENT     = 200;        // ⬆️ aggressive concurrency
+const MAX_TX_PER_WALLET  = 20_000;     // Window B budget
+const DURATION_MINUTES   = 31;
 const STATS_INTERVAL_MS  = 5_000;
+const PRE_WARM_ROUNDS    = 3;          // pre-sign 3 rounds per wallet before firing
 // ═══════════════════════════════════════════════════════════════
 
 interface WalletEntry { address: string; privateKey: string; }
@@ -50,56 +52,106 @@ let totalSent = 0;
 let totalErrors = 0;
 let endTime = 0;
 
-// ─── Optimized fire: parallel signing ─────────────────────────
+// ─── Sign a full batch in parallel ────────────────────────────
+function createAndSignBatch(
+  signer: UserSigner,
+  senderAddress: Address,
+  txComputer: TransactionComputer,
+  chainID: string,
+  startNonce: number,
+  count: number,
+): Promise<Transaction[]> {
+  const txs: Transaction[] = [];
+
+  // Create all transactions first (no async needed)
+  for (let i = 0; i < count; i++) {
+    txs.push(new Transaction({
+      nonce: BigInt(startNonce + i),
+      value: TX_VALUE,
+      sender: senderAddress,
+      receiver: senderAddress,
+      gasLimit: GAS_LIMIT,
+      gasPrice: GAS_PRICE,
+      chainID: chainID,
+      data: new Uint8Array(),
+    }));
+  }
+
+  // Sign all in parallel
+  return Promise.all(
+    txs.map(async (tx) => {
+      tx.signature = await signer.sign(txComputer.computeBytesForSigning(tx));
+      return tx;
+    })
+  );
+}
+
+// ─── Pipelined wallet fire: sign next while sending current ───
 async function fireWallet(
   wallet: WalletEntry,
   provider: ProxyNetworkProvider,
+  txComputer: TransactionComputer,
   chainID: string,
   startNonce: number,
+  preWarmed: Transaction[][],
   semaphore: Semaphore,
 ): Promise<number> {
   const secretKey = UserSecretKey.fromString(wallet.privateKey);
   const signer = new UserSigner(secretKey);
   const senderAddress = new Address(wallet.address);
-  const txComputer = new TransactionComputer();
 
   let nonce = startNonce;
   let sent = 0;
 
-  while (sent < MAX_TX_PER_WALLET && Date.now() < endTime) {
-    const currentBatch = Math.min(BATCH_SIZE, MAX_TX_PER_WALLET - sent);
+  // Use pre-warmed batches first
+  let nextBatchPromise: Promise<Transaction[]> | null = null;
 
-    // Build all transactions first
-    const txs: Transaction[] = [];
-    for (let i = 0; i < currentBatch; i++) {
-      txs.push(new Transaction({
-        nonce: BigInt(nonce + i),
-        value: TX_VALUE,
-        sender: senderAddress,
-        receiver: senderAddress,
-        gasLimit: GAS_LIMIT,
-        gasPrice: GAS_PRICE,
-        chainID: chainID,
-        data: new Uint8Array(),
-      }));
+  // Load pre-warmed batches into a queue
+  const batchQueue: Transaction[][] = [...preWarmed];
+  nonce += preWarmed.length * BATCH_SIZE;
+
+  // Pre-sign one more ahead
+  if (sent + batchQueue.length * BATCH_SIZE < MAX_TX_PER_WALLET && Date.now() < endTime) {
+    const count = Math.min(BATCH_SIZE, MAX_TX_PER_WALLET - sent - batchQueue.length * BATCH_SIZE);
+    if (count > 0) {
+      nextBatchPromise = createAndSignBatch(signer, senderAddress, txComputer, chainID, nonce, count);
+      nonce += count;
+    }
+  }
+
+  while (sent < MAX_TX_PER_WALLET && Date.now() < endTime) {
+    // Get current batch to send
+    let currentBatch: Transaction[];
+
+    if (batchQueue.length > 0) {
+      currentBatch = batchQueue.shift()!;
+    } else if (nextBatchPromise) {
+      currentBatch = await nextBatchPromise;
+      nextBatchPromise = null;
+    } else {
+      // Sign new batch
+      const count = Math.min(BATCH_SIZE, MAX_TX_PER_WALLET - sent);
+      if (count <= 0) break;
+      currentBatch = await createAndSignBatch(signer, senderAddress, txComputer, chainID, nonce, count);
+      nonce += count;
     }
 
-    // ⚡ PARALLEL SIGNING — all at once instead of one-by-one
-    await Promise.all(txs.map(async (tx) => {
-      const bytes = txComputer.computeBytesForSigning(tx);
-      tx.signature = await signer.sign(bytes);
-    }));
+    // 🔥 PIPELINE: start signing NEXT batch while we send current
+    const remaining = MAX_TX_PER_WALLET - sent - currentBatch.length;
+    if (remaining > 0 && Date.now() < endTime && !nextBatchPromise && batchQueue.length === 0) {
+      const nextCount = Math.min(BATCH_SIZE, remaining);
+      nextBatchPromise = createAndSignBatch(signer, senderAddress, txComputer, chainID, nonce, nextCount);
+      nonce += nextCount;
+    }
 
-    // Send batch (gated by semaphore)
+    // Send current batch (gated by semaphore)
     await semaphore.acquire();
     try {
-      await provider.sendTransactions(txs);
-      sent += currentBatch;
-      nonce += currentBatch;
-      totalSent += currentBatch;
+      await provider.sendTransactions(currentBatch);
+      sent += currentBatch.length;
+      totalSent += currentBatch.length;
     } catch {
       totalErrors++;
-      nonce += currentBatch;
     } finally {
       semaphore.release();
     }
@@ -108,54 +160,84 @@ async function fireWallet(
   return sent;
 }
 
-function formatTime(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+function fmt(s: number): string {
+  return `${Math.floor(s / 60).toString().padStart(2, "0")}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
 }
 
 async function main() {
   console.log("\n" + "█".repeat(60));
-  console.log("█  🔥 OPTIMIZED WINDOW B — MAX THROUGHPUT");
-  console.log("█  Concurrency: 150 | Batch: 200 | Parallel Signing");
+  console.log("█  🚀 ULTRA-OPTIMIZED WINDOW B — MAXIMUM POWER");
+  console.log("█  Pipeline signing | 200 concurrent | Pre-warm 3 rounds");
   console.log("█".repeat(60) + "\n");
 
-  // Load wallets
   const wallets: WalletEntry[] = JSON.parse(
     fs.readFileSync(path.join(__dirname, "..", "wallets.json"), "utf-8")
   );
-  console.log(`📋 Loaded ${wallets.length} wallets`);
+  console.log(`📋 ${wallets.length} wallets loaded`);
 
-  // Provider with maxed-out sockets
-  const httpsAgent = new https.Agent({ maxSockets: 300, keepAlive: true });
-  const provider = new ProxyNetworkProvider(GATEWAY_URL, {
-    httpsAgent,
-    timeout: 30_000,
-  } as any);
+  const httpsAgent = new https.Agent({ maxSockets: 400, keepAlive: true });
+  const provider = new ProxyNetworkProvider(GATEWAY_URL, { httpsAgent, timeout: 30_000 } as any);
 
   const networkConfig = await provider.getNetworkConfig();
   const chainID = networkConfig.ChainID;
-  console.log(`🌐 Chain ID: ${chainID}`);
+  console.log(`🌐 Chain: ${chainID}`);
 
-  // Fetch all nonces
+  // Fetch nonces
   console.log(`⏳ Fetching nonces...`);
-  const nonceSem = new Semaphore(100);
+  const sem = new Semaphore(100);
   const nonces: number[] = new Array(wallets.length).fill(0);
+  await Promise.all(wallets.map(async (w, i) => {
+    await sem.acquire();
+    try {
+      const a = await provider.getAccount({ bech32: () => w.address });
+      nonces[i] = a.nonce;
+    } catch { nonces[i] = 0; }
+    finally { sem.release(); }
+  }));
+  console.log(`✅ Nonces: [0]=${nonces[0]} [249]=${nonces[249]} [499]=${nonces[499]}`);
 
-  await Promise.all(
-    wallets.map(async (w, idx) => {
-      await nonceSem.acquire();
-      try {
-        const acc = await provider.getAccount({ bech32: () => w.address });
-        nonces[idx] = acc.nonce;
-      } catch { nonces[idx] = 0; }
-      finally { nonceSem.release(); }
-    })
-  );
-  console.log(`✅ Nonces ready. [0]=${nonces[0]}, [499]=${nonces[499]}`);
+  // ─── PRE-WARM: sign first 3 rounds for all wallets ───
+  console.log(`\n⚡ Pre-warming: signing ${PRE_WARM_ROUNDS} rounds × ${wallets.length} wallets = ${(PRE_WARM_ROUNDS * BATCH_SIZE * wallets.length).toLocaleString()} txs...`);
+  const txComputer = new TransactionComputer();
+  const preWarmStart = Date.now();
+
+  const allPreWarmed: Transaction[][][] = []; // [walletIdx][roundIdx][txs]
+
+  // Process wallets in chunks to avoid memory pressure
+  const CHUNK = 50;
+  for (let c = 0; c < wallets.length; c += CHUNK) {
+    const chunkEnd = Math.min(c + CHUNK, wallets.length);
+    const chunkPromises = [];
+
+    for (let w = c; w < chunkEnd; w++) {
+      const wallet = wallets[w];
+      const secretKey = UserSecretKey.fromString(wallet.privateKey);
+      const signer = new UserSigner(secretKey);
+      const addr = new Address(wallet.address);
+      let n = nonces[w];
+
+      const rounds: Promise<Transaction[]>[] = [];
+      for (let r = 0; r < PRE_WARM_ROUNDS; r++) {
+        const count = Math.min(BATCH_SIZE, MAX_TX_PER_WALLET - r * BATCH_SIZE);
+        if (count <= 0) break;
+        rounds.push(createAndSignBatch(signer, addr, txComputer, chainID, n, count));
+        n += count;
+      }
+
+      chunkPromises.push(
+        Promise.all(rounds).then(batches => { allPreWarmed[w] = batches; })
+      );
+    }
+
+    await Promise.all(chunkPromises);
+    process.stdout.write(`\r   Pre-warmed ${Math.min(c + CHUNK, wallets.length)}/${wallets.length} wallets`);
+  }
+
+  const preWarmSec = ((Date.now() - preWarmStart) / 1000).toFixed(1);
+  console.log(`\n✅ Pre-warm complete in ${preWarmSec}s — ready to blast!\n`);
 
   // Countdown
-  console.log(`\n🚀 FIRING IN 3 SECONDS...`);
+  console.log(`🚀 FIRING IN 3 SECONDS...`);
   await new Promise(r => setTimeout(r, 3000));
 
   const startTime = Date.now();
@@ -168,23 +250,19 @@ async function main() {
     const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
     const fees = (totalSent * 0.00005).toFixed(4);
     console.log(
-      `📊 [${formatTime(elapsed)}] ` +
-      `${totalSent.toLocaleString()} tx | ` +
-      `${txps.toLocaleString()} tx/s | ` +
-      `Fees: ${fees} EGLD | ` +
-      `Err: ${totalErrors} | ` +
-      `${remaining}s left`
+      `📊 [${fmt(elapsed)}] ${totalSent.toLocaleString()} tx | ${txps.toLocaleString()} tx/s | Fees: ${fees} EGLD | Err: ${totalErrors} | ${remaining}s left`
     );
   }, STATS_INTERVAL_MS);
 
-  // FIRE
-  console.log("\n🔥 ALL 500 WALLETS FIRING — MAX POWER!\n");
-  const semaphore = new Semaphore(MAX_CONCURRENT);
+  // FIRE ALL
+  console.log("🔥 ALL WALLETS FIRING — ULTRA MODE!\n");
+  const fireSem = new Semaphore(MAX_CONCURRENT);
 
   const results = await Promise.all(
-    wallets.map((w, idx) =>
-      fireWallet(w, provider, chainID, nonces[idx], semaphore)
-    )
+    wallets.map((w, i) => {
+      const preWarmedNonce = nonces[i] + (allPreWarmed[i]?.length || 0) * BATCH_SIZE;
+      return fireWallet(w, provider, txComputer, chainID, preWarmedNonce, allPreWarmed[i] || [], fireSem);
+    })
   );
 
   clearInterval(statsTimer);
@@ -193,7 +271,7 @@ async function main() {
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log("\n" + "█".repeat(60));
-  console.log("█  WINDOW B — FINAL RESULTS");
+  console.log("█  WINDOW B — FINAL");
   console.log("█".repeat(60));
   console.log(`   Transactions: ${total.toLocaleString()}`);
   console.log(`   Duration:     ${elapsed}s`);
