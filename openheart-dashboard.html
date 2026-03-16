@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenHeart Guild — Supernova Surge Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* Stars background */
+body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;
+background:radial-gradient(1px 1px at 10% 20%, #fff 0.5px, transparent 1px),
+radial-gradient(1px 1px at 30% 50%, #4ade80 0.5px, transparent 1px),
+radial-gradient(1px 1px at 60% 10%, #fff 0.5px, transparent 1px),
+radial-gradient(1px 1px at 80% 80%, #22d3ee 0.5px, transparent 1px),
+radial-gradient(1px 1px at 50% 40%, #fff 0.5px, transparent 1px),
+radial-gradient(1px 1px at 15% 70%, #4ade80 0.5px, transparent 1px),
+radial-gradient(1px 1px at 90% 30%, #fff 0.5px, transparent 1px),
+radial-gradient(1px 1px at 40% 90%, #22d3ee 0.5px, transparent 1px);
+z-index:0;pointer-events:none;animation:twinkle 4s ease-in-out infinite alternate}
+@keyframes twinkle{0%{opacity:.5}100%{opacity:1}}
+
+.container{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
+
+/* Header */
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.guild-name{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;
+background:linear-gradient(135deg,#4ade80,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.guild-sub{font-size:13px;color:#4ade80;margin-top:2px}
+.clock{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:700;color:#22d3ee;text-align:right}
+.clock-label{font-size:11px;color:#666;text-align:right}
+
+/* Status badge */
+.status{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:15px}
+.status.waiting{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3)}
+.status.live{background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);animation:pulse 1.5s infinite}
+.status.done{background:rgba(34,211,238,0.15);color:#22d3ee;border:1px solid rgba(34,211,238,0.3)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Hero section with kamehameha */
+.hero{position:relative;height:160px;margin:10px 0 20px;overflow:hidden;border-radius:12px;
+background:linear-gradient(135deg,#0d1117 0%,#0a1628 50%,#0d1117 100%);
+border:1px solid rgba(74,222,128,0.1)}
+
+.hero-character{position:absolute;left:30px;bottom:10px;width:140px;height:140px;z-index:3;
+filter:drop-shadow(0 0 20px rgba(74,222,128,0.5))}
+.hero-character img{width:100%;height:100%;object-fit:contain}
+
+/* Energy beam */
+.beam-container{position:absolute;left:140px;top:50%;transform:translateY(-50%);width:calc(100% - 140px);height:40px;z-index:2}
+.beam{width:100%;height:100%;background:linear-gradient(90deg,
+rgba(74,222,128,0.9) 0%,rgba(34,211,238,0.7) 30%,rgba(74,222,128,0.5) 60%,rgba(34,211,238,0.2) 100%);
+border-radius:0 20px 20px 0;animation:beamPulse 1s ease-in-out infinite;
+filter:blur(2px);box-shadow:0 0 30px rgba(74,222,128,0.4),0 0 60px rgba(34,211,238,0.2)}
+.beam-core{position:absolute;top:30%;left:0;width:100%;height:40%;
+background:linear-gradient(90deg,rgba(255,255,255,0.9) 0%,rgba(74,222,128,0.6) 40%,transparent 80%);
+border-radius:0 10px 10px 0;filter:blur(1px)}
+@keyframes beamPulse{0%,100%{opacity:1;transform:scaleY(1)}50%{opacity:.8;transform:scaleY(1.3)}}
+
+/* Particles */
+.particles{position:absolute;left:140px;top:0;width:calc(100% - 140px);height:100%;z-index:1}
+.particle{position:absolute;width:3px;height:3px;background:#4ade80;border-radius:50%;animation:particleMove 2s linear infinite}
+@keyframes particleMove{0%{transform:translateX(0) translateY(0);opacity:1}100%{transform:translateX(200px) translateY(-30px);opacity:0}}
+
+.hero-text{position:absolute;right:30px;top:50%;transform:translateY(-50%);text-align:right;z-index:4}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:2px}
+.hero-motto{font-size:22px;font-weight:700;color:#fff;margin-top:5px;text-shadow:0 0 20px rgba(74,222,128,0.5)}
+.hero-small{font-size:11px;color:#888;margin-top:5px}
+
+/* Stats cards */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px}
+.stat-card{background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.15);border-radius:12px;padding:18px;
+backdrop-filter:blur(10px);transition:border-color 0.3s}
+.stat-card:hover{border-color:rgba(74,222,128,0.4)}
+.stat-label{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stat-value{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:700;color:#4ade80}
+.stat-sub{font-size:12px;color:#888;margin-top:4px}
+
+/* Timeline */
+.timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px}
+.tl-item{background:rgba(13,17,23,0.8);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px;text-align:center}
+.tl-item.active{border-color:rgba(74,222,128,0.5);box-shadow:0 0 15px rgba(74,222,128,0.1)}
+.tl-item.done{border-color:rgba(34,211,238,0.3);opacity:.7}
+.tl-time{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#22d3ee}
+.tl-label{font-size:11px;color:#888;margin-top:3px}
+
+/* Chart area */
+.chart-area{background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.1);border-radius:12px;padding:20px;margin-bottom:20px}
+.chart-title{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.chart-bars{display:flex;align-items:flex-end;gap:2px;height:120px}
+.chart-bar{flex:1;background:linear-gradient(to top,rgba(74,222,128,0.8),rgba(34,211,238,0.4));border-radius:2px 2px 0 0;min-height:2px;transition:height 0.5s}
+
+/* GL wallet */
+.gl-card{background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.1);border-radius:12px;padding:15px;margin-bottom:20px;
+display:flex;justify-content:space-between;align-items:center}
+.gl-label{font-size:12px;color:#4ade80;text-transform:uppercase;letter-spacing:1px}
+.gl-addr{font-size:13px;color:#888;margin-top:3px;font-family:monospace}
+.gl-nonce{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:700;color:#22d3ee}
+.gl-nonce-label{font-size:11px;color:#666;text-transform:uppercase}
+
+/* Wallet grid */
+.wallet-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-bottom:20px}
+.wallet-cell{background:rgba(13,17,23,0.6);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;font-size:9px;text-align:center}
+.wallet-cell .addr{color:#666;font-family:monospace}
+.wallet-cell .nonce{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;margin-top:2px}
+.wallet-cell .shard{font-size:8px;padding:1px 5px;border-radius:8px;display:inline-block;margin-top:2px}
+.s0{color:#f472b6;background:rgba(244,114,182,0.1)}.s1{color:#4ade80;background:rgba(74,222,128,0.1)}.s2{color:#22d3ee;background:rgba(34,211,238,0.1)}
+.nonce-0{color:#555}.nonce-low{color:#eab308}.nonce-mid{color:#4ade80}.nonce-high{color:#22d3ee}
+
+/* Footer */  
+.footer{text-align:center;padding:15px;color:#333;font-size:11px}
+.footer a{color:#4ade80;text-decoration:none}
+
+/* Input */
+.input-row{display:flex;gap:10px;margin-bottom:20px;align-items:center}
+.input-row input{flex:1;padding:10px 14px;background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.2);
+border-radius:8px;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none}
+.input-row input:focus{border-color:#4ade80}
+.input-row button{padding:10px 20px;background:linear-gradient(135deg,#4ade80,#22d3ee);color:#0a0e1a;
+border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif}
+
+.section-title{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="guild-name">OpenHeart Guild</div>
+      <div class="guild-sub">Powered by SuperVictor — Supernova Surge</div>
+    </div>
+    <div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="clock-label">UTC</div>
+    </div>
+  </div>
+
+  <div id="statusBadge" class="status waiting"><span class="status-dot"></span><span id="statusText">Waiting for funds...</span></div>
+
+  <!-- Hero with kamehameha -->
+  <div class="hero">
+    <div class="hero-character"><img src="supervictor_blast.png" alt="SuperVictor" onerror="this.textContent='💚'" /></div>
+    <div class="beam-container">
+      <div class="beam"></div>
+      <div class="beam-core"></div>
+    </div>
+    <div class="particles" id="particles"></div>
+    <div class="hero-text">
+      <div class="hero-title">🔥 Never Give Up</div>
+      <div class="hero-motto">KEEP PUSHING</div>
+      <div class="hero-small">No custom gateways. Pure skill. Fair play.</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total Transactions</div>
+      <div class="stat-value" id="totalTx">0</div>
+      <div class="stat-sub">across 500 wallets</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TX/S Rate</div>
+      <div class="stat-value" id="txRate">0</div>
+      <div class="stat-sub" id="txRateSub">avg over 30s</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Wallets</div>
+      <div class="stat-value" id="activeWallets">0</div>
+      <div class="stat-sub">of 500 total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Milestone — 2,500,000 TXS</div>
+      <div class="stat-value" id="milestone">0%</div>
+      <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:8px;margin-top:6px;overflow:hidden">
+        <div id="milestoneBar" style="height:100%;background:linear-gradient(90deg,#4ade80,#22d3ee);border-radius:4px;width:0%;transition:width 0.5s"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="section-title">Challenge Timeline</div>
+  <div class="timeline">
+    <div class="tl-item" id="tl-dist"><div class="tl-time">15:45</div><div class="tl-label">Distribution</div></div>
+    <div class="tl-item" id="tl-wa"><div class="tl-time">16:00</div><div class="tl-label">Window A</div></div>
+    <div class="tl-item" id="tl-break"><div class="tl-time">16:30</div><div class="tl-label">Break</div></div>
+    <div class="tl-item" id="tl-wb"><div class="tl-time">17:00</div><div class="tl-label">Window B</div></div>
+    <div class="tl-item" id="tl-end"><div class="tl-time">17:30</div><div class="tl-label">End</div></div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-area">
+    <div class="chart-title">Transactions Over Time (last 5 min)</div>
+    <div class="chart-bars" id="chartBars"></div>
+  </div>
+
+  <!-- GL Wallet -->
+  <div class="gl-card">
+    <div>
+      <div class="gl-label">Guild Leader Account</div>
+      <div class="gl-addr" id="glAddr">erd1...</div>
+    </div>
+    <div style="text-align:right">
+      <div class="gl-nonce-label">Nonce</div>
+      <div class="gl-nonce" id="glNonce">0</div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <input type="text" id="addrInput" placeholder="Enter GL wallet address (erd1...)" />
+    <button onclick="startTracking()">Track</button>
+  </div>
+
+  <!-- Wallet Grid -->
+  <div class="section-title">Wallet Grid — <span id="walletCount">0</span> Wallets</div>
+  <div class="wallet-grid" id="walletGrid"></div>
+
+  <!-- Links -->
+  <div style="display:flex;gap:12px;margin:15px 0">
+    <a href="https://bon.multiversx.com/guild-wars" target="_blank" style="padding:8px 16px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:8px;color:#4ade80;text-decoration:none;font-size:13px">🏆 Live Scores</a>
+    <a href="https://bon-explorer.multiversx.com" target="_blank" style="padding:8px 16px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.2);border-radius:8px;color:#22d3ee;text-decoration:none;font-size:13px">🔍 Explorer</a>
+    <a href="https://telemetry.multiversx.com" target="_blank" style="padding:8px 16px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:8px;color:#a855f7;text-decoration:none;font-size:13px">📡 Telemetry</a>
+  </div>
+
+  <div class="footer">
+    💚 OpenHeart Guild — Powered by <a href="#">SuperVictor</a> | Battle of Nodes — Guild Wars 2026
+  </div>
+</div>
+
+<script>
+const API = 'https://api.battleofnodes.com';
+const GATEWAY = 'https://gateway.battleofnodes.com';
+const MILESTONE = 2_500_000;
+let glAddress = '';
+let walletAddresses = [];
+let prevTotal = 0;
+let prevTime = Date.now();
+let txHistory = new Array(60).fill(0);
+
+// Clock
+setInterval(() => {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toISOString().slice(11, 19);
+  updateTimeline(now);
+}, 1000);
+
+// Create particles
+const pc = document.getElementById('particles');
+for (let i = 0; i < 20; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.left = Math.random() * 60 + '%';
+  p.style.top = Math.random() * 100 + '%';
+  p.style.animationDelay = Math.random() * 2 + 's';
+  p.style.animationDuration = (1 + Math.random() * 2) + 's';
+  p.style.background = Math.random() > 0.5 ? '#4ade80' : '#22d3ee';
+  pc.appendChild(p);
+}
+
+// Init chart
+const chartBars = document.getElementById('chartBars');
+for (let i = 0; i < 60; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'chart-bar';
+  bar.style.height = '2px';
+  chartBars.appendChild(bar);
+}
+
+function updateTimeline(now) {
+  const utcH = now.getUTCHours(), utcM = now.getUTCMinutes();
+  const mins = utcH * 60 + utcM;
+  const phases = [
+    { id: 'tl-dist', start: 15*60+45, end: 16*60 },
+    { id: 'tl-wa', start: 16*60, end: 16*60+30 },
+    { id: 'tl-break', start: 16*60+30, end: 17*60 },
+    { id: 'tl-wb', start: 17*60, end: 17*60+30 },
+    { id: 'tl-end', start: 17*60+30, end: 24*60 },
+  ];
+  phases.forEach(p => {
+    const el = document.getElementById(p.id);
+    el.classList.remove('active', 'done');
+    if (mins >= p.start && mins < p.end) { el.classList.add('active'); updateStatus(p.id); }
+    else if (mins >= p.end) el.classList.add('done');
+  });
+}
+
+function updateStatus(phaseId) {
+  const badge = document.getElementById('statusBadge');
+  const text = document.getElementById('statusText');
+  badge.className = 'status';
+  switch(phaseId) {
+    case 'tl-dist': badge.classList.add('waiting'); text.textContent = '⏳ Distributing funds...'; break;
+    case 'tl-wa': badge.classList.add('live'); text.textContent = '🔥 WINDOW A — LIVE!'; break;
+    case 'tl-break': badge.classList.add('waiting'); text.textContent = '⏸️ Break — preparing Window B'; break;
+    case 'tl-wb': badge.classList.add('live'); text.textContent = '🔥 WINDOW B — LIVE!'; break;
+    case 'tl-end': badge.classList.add('done'); text.textContent = '✅ Challenge complete!'; break;
+  }
+}
+
+function startTracking() {
+  glAddress = document.getElementById('addrInput').value.trim();
+  if (!glAddress.startsWith('erd1')) return alert('Enter a valid erd1... address');
+  document.getElementById('glAddr').textContent = glAddress.slice(0,12) + '...' + glAddress.slice(-8);
+  localStorage.setItem('gl_addr', glAddress);
+  fetchGL();
+  fetchWallets();
+  setInterval(fetchGL, 10000);
+  setInterval(fetchWallets, 15000);
+}
+
+async function fetchGL() {
+  if (!glAddress) return;
+  try {
+    const res = await fetch(`${API}/accounts/${glAddress}`);
+    const data = await res.json();
+    document.getElementById('glNonce').textContent = data.nonce?.toLocaleString() || '0';
+  } catch(e) { console.error('GL fetch error:', e); }
+}
+
+async function fetchWallets() {
+  if (!glAddress) return;
+  try {
+    const res = await fetch(`${API}/accounts/${glAddress}/transfers?size=500&receiver=${glAddress}&function=&status=success`);
+
+    // Try alternative: get transactions sent BY the GL wallet
+    const res2 = await fetch(`${API}/transactions?sender=${glAddress}&size=500&status=success`);
+    const txs = await res2.json();
+
+    // Collect unique receivers
+    const receivers = new Set();
+    txs.forEach(tx => { if (tx.receiver !== glAddress) receivers.add(tx.receiver); });
+    walletAddresses = Array.from(receivers).slice(0, 500);
+    document.getElementById('walletCount').textContent = walletAddresses.length;
+
+    // Fetch each wallet's nonce
+    let totalTx = 0;
+    let activeCount = 0;
+    const grid = document.getElementById('walletGrid');
+    grid.innerHTML = '';
+
+    // Batch fetch
+    const batchSize = 50;
+    for (let i = 0; i < walletAddresses.length; i += batchSize) {
+      const batch = walletAddresses.slice(i, i + batchSize);
+      const promises = batch.map(addr =>
+        fetch(`${GATEWAY}/address/${addr}`).then(r => r.json()).catch(() => null)
+      );
+      const results = await Promise.all(promises);
+
+      results.forEach((r, idx) => {
+        const addr = batch[idx];
+        const nonce = r?.data?.account?.nonce || 0;
+        const balance = r?.data?.account?.balance || '0';
+        totalTx += nonce;
+        if (nonce > 0) activeCount++;
+
+        const shard = parseInt(addr.slice(-1), 16) % 3;
+        const cell = document.createElement('div');
+        cell.className = 'wallet-cell';
+        const nonceClass = nonce === 0 ? 'nonce-0' : nonce < 100 ? 'nonce-low' : nonce < 1000 ? 'nonce-mid' : 'nonce-high';
+        cell.innerHTML = `<div class="addr">${addr.slice(0,6)}...${addr.slice(-4)}</div>
+          <div class="nonce ${nonceClass}">${nonce.toLocaleString()}</div>
+          <span class="shard s${shard}">S${shard}</span>`;
+        grid.appendChild(cell);
+      });
+    }
+
+    // Update stats
+    const now = Date.now();
+    const rate = prevTotal > 0 ? Math.round((totalTx - prevTotal) / ((now - prevTime) / 1000)) : 0;
+    prevTotal = totalTx;
+    prevTime = now;
+
+    document.getElementById('totalTx').textContent = totalTx.toLocaleString();
+    document.getElementById('txRate').textContent = Math.max(0, rate).toLocaleString();
+    document.getElementById('activeWallets').textContent = activeCount;
+
+    const pct = Math.min(100, (totalTx / MILESTONE) * 100);
+    document.getElementById('milestone').textContent = pct.toFixed(1) + '%';
+    document.getElementById('milestoneBar').style.width = pct + '%';
+
+    // Chart
+    txHistory.push(totalTx);
+    txHistory.shift();
+    const maxH = Math.max(...txHistory.filter(x => x > 0), 1);
+    const bars = chartBars.children;
+    for (let i = 0; i < bars.length && i < txHistory.length; i++) {
+      bars[i].style.height = Math.max(2, (txHistory[i] / maxH) * 120) + 'px';
+    }
+
+  } catch(e) { console.error('Wallet fetch error:', e); }
+}
+
+// Load saved address
+const saved = localStorage.getItem('gl_addr');
+if (saved) { document.getElementById('addrInput').value = saved; startTracking(); }
+</script>
+</body>
+</html>
