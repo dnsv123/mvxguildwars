@@ -50,12 +50,12 @@ const TX_VALUE        = BigInt(0);
 const GAS_LIMIT       = BigInt(50_000);
 const GAS_PRICE_STD   = BigInt(1_000_000_000);
 
-// Window A: 3x gasPrice → fee = 0.00015/tx → budget 2000 EGLD → max ~13.3M tx
-const WINDOW_A_GAS_X  = BigInt(3);  // 3x = PRIORITY over 1x/2x guilds
-const WINDOW_A_MAX_TX = 26_666; // per wallet (2000 EGLD ÷ 0.00015 ÷ 500)
-// Window B: 2x gasPrice → fee = 0.0001/tx → budget 500 EGLD → max 5M tx
-const WINDOW_B_GAS_X  = BigInt(2);
-const WINDOW_B_MAX_TX = 10_000; // per wallet
+// Window A: 1x gasPrice → fee = 0.00005/tx → budget 2000 EGLD → max 40M tx
+const WINDOW_A_GAS_X  = BigInt(1);  // 1x = MAX transactions (Supernova has 4x capacity, blocks not full)
+const WINDOW_A_MAX_TX = 80_000; // per wallet (2000 EGLD ÷ 0.00005 ÷ 500)
+// Window B: 1x gasPrice → fee = 0.00005/tx → budget 500 EGLD → max 10M tx
+const WINDOW_B_GAS_X  = BigInt(1);  // 1x = MAX transactions
+const WINDOW_B_MAX_TX = 20_000; // per wallet (500 EGLD ÷ 0.00005 ÷ 500)
 
 // Block heartbeat
 const BATCH_PER_WALLET = 90;     // 90 < 100 limit (10 nonces margin de siguranță)
