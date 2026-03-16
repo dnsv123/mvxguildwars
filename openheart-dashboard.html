@@ -9,30 +9,29 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0e1a;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow-x:hidden}
 
-/* Stars background */
+/* Stars */
 body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;
-background:radial-gradient(1px 1px at 10% 20%, #fff 0.5px, transparent 1px),
-radial-gradient(1px 1px at 30% 50%, #4ade80 0.5px, transparent 1px),
-radial-gradient(1px 1px at 60% 10%, #fff 0.5px, transparent 1px),
-radial-gradient(1px 1px at 80% 80%, #22d3ee 0.5px, transparent 1px),
-radial-gradient(1px 1px at 50% 40%, #fff 0.5px, transparent 1px),
-radial-gradient(1px 1px at 15% 70%, #4ade80 0.5px, transparent 1px),
-radial-gradient(1px 1px at 90% 30%, #fff 0.5px, transparent 1px),
-radial-gradient(1px 1px at 40% 90%, #22d3ee 0.5px, transparent 1px);
+background:radial-gradient(1px 1px at 10% 20%,#fff 0.5px,transparent 1px),
+radial-gradient(1px 1px at 30% 50%,#38bdf8 0.5px,transparent 1px),
+radial-gradient(1px 1px at 60% 10%,#fff 0.5px,transparent 1px),
+radial-gradient(1px 1px at 80% 80%,#9382ff 0.5px,transparent 1px),
+radial-gradient(1px 1px at 50% 40%,#fff 0.5px,transparent 1px),
+radial-gradient(1px 1px at 15% 70%,#38bdf8 0.5px,transparent 1px),
+radial-gradient(1px 1px at 90% 30%,#fff 0.5px,transparent 1px);
 z-index:0;pointer-events:none;animation:twinkle 4s ease-in-out infinite alternate}
-@keyframes twinkle{0%{opacity:.5}100%{opacity:1}}
+@keyframes twinkle{0%{opacity:.4}100%{opacity:1}}
 
 .container{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
 
 /* Header */
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .guild-name{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;
-background:linear-gradient(135deg,#4ade80,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+background:linear-gradient(135deg,#4ade80,#22d3ee);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
 .guild-sub{font-size:13px;color:#4ade80;margin-top:2px}
 .clock{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:700;color:#22d3ee;text-align:right}
 .clock-label{font-size:11px;color:#666;text-align:right}
 
-/* Status badge */
+/* Status */
 .status{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:15px}
 .status.waiting{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3)}
 .status.live{background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);animation:pulse 1.5s infinite}
@@ -40,37 +39,70 @@ background:linear-gradient(135deg,#4ade80,#22d3ee);-webkit-background-clip:text;
 .status-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
-/* Hero section with kamehameha */
-.hero{position:relative;height:160px;margin:10px 0 20px;overflow:hidden;border-radius:12px;
-background:linear-gradient(135deg,#0d1117 0%,#0a1628 50%,#0d1117 100%);
-border:1px solid rgba(74,222,128,0.1)}
+/* ═══════ HERO with proper layering ═══════ */
+.hero{position:relative;height:180px;margin:10px 0 20px;overflow:hidden;border-radius:16px;
+background:linear-gradient(135deg,#080c18 0%,#0c1530 40%,#0a1225 100%);
+border:1px solid rgba(56,189,248,0.1)}
 
-.hero-character{position:absolute;left:30px;bottom:10px;width:140px;height:140px;z-index:3;
-filter:drop-shadow(0 0 20px rgba(74,222,128,0.5))}
+/* Layer 1: Background glow behind character */
+.hero-glow{position:absolute;left:40px;top:50%;transform:translateY(-50%);width:160px;height:160px;
+background:radial-gradient(circle,rgba(56,189,248,0.15) 0%,rgba(147,130,255,0.08) 50%,transparent 70%);
+z-index:1;animation:glowPulse 2s ease-in-out infinite}
+@keyframes glowPulse{0%,100%{transform:translateY(-50%) scale(1);opacity:1}50%{transform:translateY(-50%) scale(1.2);opacity:.7}}
+
+/* Layer 2: The beam — starts small at hands, expands outward */
+.beam-track{position:absolute;left:155px;top:50%;transform:translateY(-50%);
+width:calc(100% - 155px);height:6px;z-index:2}
+.beam-line{width:100%;height:100%;
+background:linear-gradient(90deg,rgba(56,189,248,0.9),rgba(147,130,255,0.5) 60%,transparent 95%);
+border-radius:0 4px 4px 0;box-shadow:0 0 12px rgba(56,189,248,0.6),0 0 25px rgba(147,130,255,0.3);
+animation:beamFlicker .3s ease-in-out infinite alternate}
+@keyframes beamFlicker{0%{opacity:.85;height:6px}100%{opacity:1;height:8px}}
+
+/* Wider beam glow behind the thin beam */
+.beam-glow{position:absolute;left:155px;top:50%;transform:translateY(-50%);
+width:calc(100% - 155px);height:30px;z-index:1;
+background:linear-gradient(90deg,rgba(56,189,248,0.2),rgba(147,130,255,0.1) 50%,transparent 90%);
+border-radius:0 15px 15px 0;filter:blur(8px);animation:beamGlowPulse 1.5s ease-in-out infinite}
+@keyframes beamGlowPulse{0%,100%{opacity:.6;transform:translateY(-50%) scaleY(1)}50%{opacity:1;transform:translateY(-50%) scaleY(1.5)}}
+
+/* Layer 3: Energy orbs flying along the beam */
+.orb{position:absolute;width:8px;height:8px;border-radius:50%;z-index:3;
+background:radial-gradient(circle,#fff 20%,#38bdf8 60%,transparent 100%);
+box-shadow:0 0 10px #38bdf8,0 0 20px rgba(147,130,255,0.5);
+animation:orbFly 1.2s linear infinite;top:50%;transform:translateY(-50%)}
+@keyframes orbFly{0%{left:155px;opacity:1;width:10px;height:10px}
+30%{opacity:1;width:8px;height:8px}
+80%{opacity:.6;width:6px;height:6px}
+100%{left:100%;opacity:0;width:4px;height:4px}}
+
+/* Layer 4: Character on top */
+.hero-character{position:absolute;left:10px;bottom:5px;width:160px;height:160px;z-index:5;
+filter:drop-shadow(0 0 15px rgba(56,189,248,0.4))}
 .hero-character img{width:100%;height:100%;object-fit:contain}
 
-/* Energy beam */
-.beam-container{position:absolute;left:140px;top:50%;transform:translateY(-50%);width:calc(100% - 140px);height:40px;z-index:2}
-.beam{width:100%;height:100%;background:linear-gradient(90deg,
-rgba(147,130,255,0.9) 0%,rgba(34,211,238,0.8) 20%,rgba(56,189,248,0.6) 50%,rgba(147,130,255,0.3) 80%,transparent 100%);
-border-radius:0 20px 20px 0;animation:beamPulse 1s ease-in-out infinite;
-filter:blur(2px);box-shadow:0 0 30px rgba(56,189,248,0.5),0 0 60px rgba(147,130,255,0.3)}
-.beam-core{position:absolute;top:30%;left:0;width:100%;height:40%;
-background:linear-gradient(90deg,rgba(255,255,255,0.9) 0%,rgba(56,189,248,0.7) 40%,transparent 80%);
-border-radius:0 10px 10px 0;filter:blur(1px)}
-@keyframes beamPulse{0%,100%{opacity:1;transform:scaleY(1)}50%{opacity:.8;transform:scaleY(1.3)}}
+/* Layer 5: Text on right */
+.hero-text{position:absolute;right:30px;top:50%;transform:translateY(-50%);text-align:right;z-index:6}
+.hero-title{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:2px}
+.hero-motto{font-size:24px;font-weight:900;color:#fff;margin-top:4px;
+text-shadow:0 0 20px rgba(56,189,248,0.4),0 0 40px rgba(147,130,255,0.2);
+font-family:'Orbitron',sans-serif}
+.hero-small{font-size:11px;color:#666;margin-top:5px}
 
-/* Particles */
-.particles{position:absolute;left:140px;top:0;width:calc(100% - 140px);height:100%;z-index:1}
-.particle{position:absolute;width:3px;height:3px;background:#38bdf8;border-radius:50%;animation:particleMove 2s linear infinite}
-@keyframes particleMove{0%{transform:translateX(0) translateY(0);opacity:1}100%{transform:translateX(200px) translateY(-30px);opacity:0}}
+/* ═══════ TELEMETRY STRIP ═══════ */
+.telemetry-strip{display:flex;gap:12px;margin-bottom:20px;overflow:hidden}
+.tele-card{flex:1;background:rgba(13,17,23,0.8);border:1px solid rgba(56,189,248,0.1);border-radius:10px;
+padding:12px;position:relative;overflow:hidden}
+.tele-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;
+background:linear-gradient(90deg,transparent,#38bdf8,transparent);animation:scanLine 3s linear infinite}
+@keyframes scanLine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.tele-label{font-size:9px;color:#38bdf8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.tele-value{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:#fff}
+.tele-bar{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:6px;overflow:hidden}
+.tele-bar-fill{height:100%;border-radius:2px;transition:width 0.5s;
+background:linear-gradient(90deg,#38bdf8,#9382ff)}
 
-.hero-text{position:absolute;right:30px;top:50%;transform:translateY(-50%);text-align:right;z-index:4}
-.hero-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:2px}
-.hero-motto{font-size:22px;font-weight:700;color:#fff;margin-top:5px;text-shadow:0 0 20px rgba(74,222,128,0.5)}
-.hero-small{font-size:11px;color:#888;margin-top:5px}
-
-/* Stats cards */
+/* Stats */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px}
 .stat-card{background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.15);border-radius:12px;padding:18px;
 backdrop-filter:blur(10px);transition:border-color 0.3s}
@@ -81,19 +113,26 @@ backdrop-filter:blur(10px);transition:border-color 0.3s}
 
 /* Timeline */
 .timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px}
-.tl-item{background:rgba(13,17,23,0.8);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px;text-align:center}
+.tl-item{background:rgba(13,17,23,0.8);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px;text-align:center;transition:all .3s}
 .tl-item.active{border-color:rgba(74,222,128,0.5);box-shadow:0 0 15px rgba(74,222,128,0.1)}
 .tl-item.done{border-color:rgba(34,211,238,0.3);opacity:.7}
 .tl-time{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:#22d3ee}
 .tl-label{font-size:11px;color:#888;margin-top:3px}
 
-/* Chart area */
-.chart-area{background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.1);border-radius:12px;padding:20px;margin-bottom:20px}
+/* Chart */
+.chart-area{background:rgba(13,17,23,0.8);border:1px solid rgba(56,189,248,0.1);border-radius:12px;padding:20px;margin-bottom:20px}
 .chart-title{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
 .chart-bars{display:flex;align-items:flex-end;gap:2px;height:120px}
-.chart-bar{flex:1;background:linear-gradient(to top,rgba(74,222,128,0.8),rgba(34,211,238,0.4));border-radius:2px 2px 0 0;min-height:2px;transition:height 0.5s}
+.chart-bar{flex:1;background:linear-gradient(to top,rgba(56,189,248,0.8),rgba(147,130,255,0.4));border-radius:2px 2px 0 0;min-height:2px;transition:height 0.5s}
 
-/* GL wallet */
+/* Live TX Feed */
+.tx-feed{background:rgba(13,17,23,0.8);border:1px solid rgba(56,189,248,0.1);border-radius:12px;padding:15px;margin-bottom:20px;max-height:150px;overflow:hidden}
+.tx-feed-title{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.tx-line{font-family:monospace;font-size:11px;color:#38bdf8;padding:2px 0;opacity:.7;animation:feedIn .5s ease-out}
+.tx-line span{color:#9382ff}
+@keyframes feedIn{0%{opacity:0;transform:translateX(-10px)}100%{opacity:.7;transform:translateX(0)}}
+
+/* GL card */
 .gl-card{background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.1);border-radius:12px;padding:15px;margin-bottom:20px;
 display:flex;justify-content:space-between;align-items:center}
 .gl-label{font-size:12px;color:#4ade80;text-transform:uppercase;letter-spacing:1px}
@@ -103,36 +142,39 @@ display:flex;justify-content:space-between;align-items:center}
 
 /* Wallet grid */
 .wallet-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-bottom:20px}
-.wallet-cell{background:rgba(13,17,23,0.6);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;font-size:9px;text-align:center}
+.wallet-cell{background:rgba(13,17,23,0.6);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;font-size:9px;text-align:center;transition:border-color .3s}
+.wallet-cell:hover{border-color:rgba(56,189,248,0.3)}
 .wallet-cell .addr{color:#666;font-family:monospace}
 .wallet-cell .nonce{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;margin-top:2px}
 .wallet-cell .shard{font-size:8px;padding:1px 5px;border-radius:8px;display:inline-block;margin-top:2px}
 .s0{color:#f472b6;background:rgba(244,114,182,0.1)}.s1{color:#4ade80;background:rgba(74,222,128,0.1)}.s2{color:#22d3ee;background:rgba(34,211,238,0.1)}
 .nonce-0{color:#555}.nonce-low{color:#eab308}.nonce-mid{color:#4ade80}.nonce-high{color:#22d3ee}
 
-/* Footer */  
-.footer{text-align:center;padding:15px;color:#333;font-size:11px}
-.footer a{color:#4ade80;text-decoration:none}
-
 /* Input */
 .input-row{display:flex;gap:10px;margin-bottom:20px;align-items:center}
-.input-row input{flex:1;padding:10px 14px;background:rgba(13,17,23,0.8);border:1px solid rgba(74,222,128,0.2);
+.input-row input{flex:1;padding:10px 14px;background:rgba(13,17,23,0.8);border:1px solid rgba(56,189,248,0.2);
 border-radius:8px;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none}
-.input-row input:focus{border-color:#4ade80}
-.input-row button{padding:10px 20px;background:linear-gradient(135deg,#4ade80,#22d3ee);color:#0a0e1a;
+.input-row input:focus{border-color:#38bdf8}
+.input-row button{padding:10px 20px;background:linear-gradient(135deg,#38bdf8,#9382ff);color:#0a0e1a;
 border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif}
 
 .section-title{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+
+.footer{text-align:center;padding:15px;color:#333;font-size:11px}
+.footer a{color:#4ade80;text-decoration:none}
+
+.links{display:flex;gap:12px;margin:15px 0;flex-wrap:wrap}
+.links a{padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;transition:all .2s}
+.links a:hover{transform:translateY(-1px)}
 </style>
 </head>
 <body>
-
 <div class="container">
   <!-- Header -->
   <div class="header">
     <div>
       <div class="guild-name">OpenHeart Guild</div>
-      <div class="guild-sub">Powered by SuperVictor — Supernova Surge</div>
+      <div class="guild-sub">⚡ Powered by SuperVictor — Supernova Surge</div>
     </div>
     <div>
       <div class="clock" id="clock">--:--:--</div>
@@ -140,20 +182,58 @@ border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space 
     </div>
   </div>
 
-  <div id="statusBadge" class="status waiting"><span class="status-dot"></span><span id="statusText">Waiting for funds...</span></div>
+  <div id="statusBadge" class="status waiting"><span class="status-dot"></span><span id="statusText">⏳ Waiting for challenge...</span></div>
 
-  <!-- Hero with kamehameha -->
-  <div class="hero">
-    <div class="hero-character"><img src="supervictor_blast.png" alt="SuperVictor" onerror="this.textContent='💚'" /></div>
-    <div class="beam-container">
-      <div class="beam"></div>
-      <div class="beam-core"></div>
-    </div>
-    <div class="particles" id="particles"></div>
+  <!-- ═══════ HERO ═══════ -->
+  <div class="hero" id="heroSection">
+    <!-- L1: Glow behind character -->
+    <div class="hero-glow"></div>
+    <!-- L2: Beam thin line -->
+    <div class="beam-track"><div class="beam-line"></div></div>
+    <!-- L2b: Beam wide glow -->
+    <div class="beam-glow"></div>
+    <!-- L3: Orbs (added by JS) -->
+    <!-- L4: Character -->
+    <div class="hero-character"><img src="supervictor_blast.png" alt="SuperVictor" /></div>
+    <!-- L5: Text -->
     <div class="hero-text">
       <div class="hero-title">🔥 Never Give Up</div>
       <div class="hero-motto">KEEP PUSHING</div>
-      <div class="hero-small">No custom gateways. Pure skill. Fair play.</div>
+      <div class="hero-small">Pure skill. Fair play. No shortcuts.</div>
+    </div>
+  </div>
+
+  <!-- ═══════ TELEMETRY STRIP ═══════ -->
+  <div class="telemetry-strip">
+    <div class="tele-card">
+      <div class="tele-label">Block Time</div>
+      <div class="tele-value" id="teleBlock">600ms</div>
+      <div class="tele-bar"><div class="tele-bar-fill" style="width:100%"></div></div>
+    </div>
+    <div class="tele-card">
+      <div class="tele-label">Blocks / Min</div>
+      <div class="tele-value" id="teleBlocks">~100</div>
+      <div class="tele-bar"><div class="tele-bar-fill" style="width:100%"></div></div>
+    </div>
+    <div class="tele-card">
+      <div class="tele-label">Shard 0</div>
+      <div class="tele-value" id="teleShard0">155 wallets</div>
+      <div class="tele-bar"><div class="tele-bar-fill" style="width:31%"></div></div>
+    </div>
+    <div class="tele-card">
+      <div class="tele-label">Shard 1</div>
+      <div class="tele-value" id="teleShard1">185 wallets</div>
+      <div class="tele-bar"><div class="tele-bar-fill" style="width:37%"></div></div>
+    </div>
+    <div class="tele-card">
+      <div class="tele-label">Shard 2</div>
+      <div class="tele-value" id="teleShard2">160 wallets</div>
+      <div class="tele-bar"><div class="tele-bar-fill" style="width:32%"></div></div>
+    </div>
+    <div class="tele-card">
+      <div class="tele-label">Gas Price</div>
+      <div class="tele-value" id="teleGas">3x</div>
+      <div class="tele-bar"><div class="tele-bar-fill" style="width:60%"></div></div>
     </div>
   </div>
 
@@ -167,7 +247,7 @@ border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space 
     <div class="stat-card">
       <div class="stat-label">TX/S Rate</div>
       <div class="stat-value" id="txRate">0</div>
-      <div class="stat-sub" id="txRateSub">avg over 30s</div>
+      <div class="stat-sub">avg over 30s</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Active Wallets</div>
@@ -178,7 +258,7 @@ border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space 
       <div class="stat-label">Milestone — 2,500,000 TXS</div>
       <div class="stat-value" id="milestone">0%</div>
       <div style="background:rgba(255,255,255,0.05);border-radius:4px;height:8px;margin-top:6px;overflow:hidden">
-        <div id="milestoneBar" style="height:100%;background:linear-gradient(90deg,#4ade80,#22d3ee);border-radius:4px;width:0%;transition:width 0.5s"></div>
+        <div id="milestoneBar" style="height:100%;background:linear-gradient(90deg,#38bdf8,#9382ff);border-radius:4px;width:0%;transition:width 0.5s"></div>
       </div>
     </div>
   </div>
@@ -199,7 +279,12 @@ border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space 
     <div class="chart-bars" id="chartBars"></div>
   </div>
 
-  <!-- GL Wallet -->
+  <!-- Live TX Feed -->
+  <div class="tx-feed" id="txFeed">
+    <div class="tx-feed-title">📡 Live Transaction Feed</div>
+  </div>
+
+  <!-- GL -->
   <div class="gl-card">
     <div>
       <div class="gl-label">Guild Leader Account</div>
@@ -217,53 +302,59 @@ border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:'Space 
     <button onclick="startTracking()">Track</button>
   </div>
 
-  <!-- Wallet Grid -->
+  <!-- Wallet grid -->
   <div class="section-title">Wallet Grid — <span id="walletCount">0</span> Wallets</div>
   <div class="wallet-grid" id="walletGrid"></div>
 
-  <!-- Links -->
-  <div style="display:flex;gap:12px;margin:15px 0">
-    <a href="https://bon.multiversx.com/guild-wars" target="_blank" style="padding:8px 16px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);border-radius:8px;color:#4ade80;text-decoration:none;font-size:13px">🏆 Live Scores</a>
-    <a href="https://bon-explorer.multiversx.com" target="_blank" style="padding:8px 16px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.2);border-radius:8px;color:#22d3ee;text-decoration:none;font-size:13px">🔍 Explorer</a>
-    <a href="https://telemetry.multiversx.com" target="_blank" style="padding:8px 16px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:8px;color:#a855f7;text-decoration:none;font-size:13px">📡 Telemetry</a>
+  <div class="links">
+    <a href="https://bon.multiversx.com/guild-wars" target="_blank" style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);color:#4ade80">🏆 Live Scores</a>
+    <a href="https://bon-explorer.multiversx.com" target="_blank" style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.2);color:#22d3ee">🔍 Explorer</a>
+    <a href="https://telemetry.multiversx.com" target="_blank" style="background:rgba(147,130,255,0.1);border:1px solid rgba(147,130,255,0.2);color:#9382ff">📡 Telemetry</a>
+    <a href="https://github.com/dnsv123/mvxguildwars" target="_blank" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888">💻 GitHub</a>
   </div>
 
-  <div class="footer">
-    💚 OpenHeart Guild — Powered by <a href="#">SuperVictor</a> | Battle of Nodes — Guild Wars 2026
-  </div>
+  <div class="footer">💚 OpenHeart Guild — Powered by <a href="#">SuperVictor</a> | Battle of Nodes — Guild Wars 2026</div>
 </div>
 
 <script>
 const API = 'https://api.battleofnodes.com';
 const GATEWAY = 'https://gateway.battleofnodes.com';
-const MILESTONE = 2_500_000;
+const MILESTONE = 2500000;
 let glAddress = '';
 let walletAddresses = [];
 let prevTotal = 0;
 let prevTime = Date.now();
 let txHistory = new Array(60).fill(0);
 
-// Clock
+// ═══ Energy orbs — continuous stream ═══
+function spawnOrbs() {
+  const hero = document.getElementById('heroSection');
+  setInterval(() => {
+    const orb = document.createElement('div');
+    orb.className = 'orb';
+    orb.style.animationDuration = (0.8 + Math.random() * 0.8) + 's';
+    orb.style.top = (45 + Math.random() * 10) + '%';
+    const size = 4 + Math.random() * 6;
+    orb.style.width = size + 'px';
+    orb.style.height = size + 'px';
+    const colors = ['#38bdf8', '#9382ff', '#67e8f9', '#a78bfa'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    orb.style.background = `radial-gradient(circle,#fff 15%,${color} 55%,transparent 100%)`;
+    orb.style.boxShadow = `0 0 8px ${color},0 0 16px ${color}40`;
+    hero.appendChild(orb);
+    orb.addEventListener('animationend', () => orb.remove());
+  }, 200);
+}
+spawnOrbs();
+
+// ═══ Clock ═══
 setInterval(() => {
   const now = new Date();
   document.getElementById('clock').textContent = now.toISOString().slice(11, 19);
   updateTimeline(now);
 }, 1000);
 
-// Create particles
-const pc = document.getElementById('particles');
-for (let i = 0; i < 20; i++) {
-  const p = document.createElement('div');
-  p.className = 'particle';
-  p.style.left = Math.random() * 60 + '%';
-  p.style.top = Math.random() * 100 + '%';
-  p.style.animationDelay = Math.random() * 2 + 's';
-  p.style.animationDuration = (1 + Math.random() * 2) + 's';
-  p.style.background = Math.random() > 0.5 ? '#38bdf8' : '#9382ff';
-  pc.appendChild(p);
-}
-
-// Init chart
+// ═══ Chart init ═══
 const chartBars = document.getElementById('chartBars');
 for (let i = 0; i < 60; i++) {
   const bar = document.createElement('div');
@@ -273,14 +364,13 @@ for (let i = 0; i < 60; i++) {
 }
 
 function updateTimeline(now) {
-  const utcH = now.getUTCHours(), utcM = now.getUTCMinutes();
-  const mins = utcH * 60 + utcM;
+  const mins = now.getUTCHours() * 60 + now.getUTCMinutes();
   const phases = [
-    { id: 'tl-dist', start: 15*60+45, end: 16*60 },
-    { id: 'tl-wa', start: 16*60, end: 16*60+30 },
-    { id: 'tl-break', start: 16*60+30, end: 17*60 },
-    { id: 'tl-wb', start: 17*60, end: 17*60+30 },
-    { id: 'tl-end', start: 17*60+30, end: 24*60 },
+    { id: 'tl-dist', start: 945, end: 960 },
+    { id: 'tl-wa', start: 960, end: 990 },
+    { id: 'tl-break', start: 990, end: 1020 },
+    { id: 'tl-wb', start: 1020, end: 1050 },
+    { id: 'tl-end', start: 1050, end: 1440 },
   ];
   phases.forEach(p => {
     const el = document.getElementById(p.id);
@@ -303,11 +393,24 @@ function updateStatus(phaseId) {
   }
 }
 
+// ═══ TX Feed ═══
+function addFeedLine(msg) {
+  const feed = document.getElementById('txFeed');
+  const line = document.createElement('div');
+  line.className = 'tx-line';
+  line.innerHTML = msg;
+  feed.appendChild(line);
+  // Keep max 10 lines
+  while (feed.children.length > 11) feed.children[1].remove();
+  feed.scrollTop = feed.scrollHeight;
+}
+
 function startTracking() {
   glAddress = document.getElementById('addrInput').value.trim();
   if (!glAddress.startsWith('erd1')) return alert('Enter a valid erd1... address');
   document.getElementById('glAddr').textContent = glAddress.slice(0,12) + '...' + glAddress.slice(-8);
   localStorage.setItem('gl_addr', glAddress);
+  addFeedLine(`🔑 Tracking GL: <span>${glAddress.slice(0,16)}...</span>`);
   fetchGL();
   fetchWallets();
   setInterval(fetchGL, 10000);
@@ -320,31 +423,23 @@ async function fetchGL() {
     const res = await fetch(`${API}/accounts/${glAddress}`);
     const data = await res.json();
     document.getElementById('glNonce').textContent = data.nonce?.toLocaleString() || '0';
-  } catch(e) { console.error('GL fetch error:', e); }
+  } catch(e) { console.error('GL fetch:', e); }
 }
 
 async function fetchWallets() {
   if (!glAddress) return;
   try {
-    const res = await fetch(`${API}/accounts/${glAddress}/transfers?size=500&receiver=${glAddress}&function=&status=success`);
-
-    // Try alternative: get transactions sent BY the GL wallet
     const res2 = await fetch(`${API}/transactions?sender=${glAddress}&size=500&status=success`);
     const txs = await res2.json();
-
-    // Collect unique receivers
     const receivers = new Set();
     txs.forEach(tx => { if (tx.receiver !== glAddress) receivers.add(tx.receiver); });
     walletAddresses = Array.from(receivers).slice(0, 500);
     document.getElementById('walletCount').textContent = walletAddresses.length;
 
-    // Fetch each wallet's nonce
-    let totalTx = 0;
-    let activeCount = 0;
+    let totalTx = 0, activeCount = 0;
     const grid = document.getElementById('walletGrid');
     grid.innerHTML = '';
 
-    // Batch fetch
     const batchSize = 50;
     for (let i = 0; i < walletAddresses.length; i += batchSize) {
       const batch = walletAddresses.slice(i, i + batchSize);
@@ -352,40 +447,37 @@ async function fetchWallets() {
         fetch(`${GATEWAY}/address/${addr}`).then(r => r.json()).catch(() => null)
       );
       const results = await Promise.all(promises);
-
       results.forEach((r, idx) => {
         const addr = batch[idx];
         const nonce = r?.data?.account?.nonce || 0;
-        const balance = r?.data?.account?.balance || '0';
         totalTx += nonce;
         if (nonce > 0) activeCount++;
-
         const shard = parseInt(addr.slice(-1), 16) % 3;
         const cell = document.createElement('div');
         cell.className = 'wallet-cell';
-        const nonceClass = nonce === 0 ? 'nonce-0' : nonce < 100 ? 'nonce-low' : nonce < 1000 ? 'nonce-mid' : 'nonce-high';
-        cell.innerHTML = `<div class="addr">${addr.slice(0,6)}...${addr.slice(-4)}</div>
-          <div class="nonce ${nonceClass}">${nonce.toLocaleString()}</div>
-          <span class="shard s${shard}">S${shard}</span>`;
+        const nc = nonce === 0 ? 'nonce-0' : nonce < 100 ? 'nonce-low' : nonce < 1000 ? 'nonce-mid' : 'nonce-high';
+        cell.innerHTML = `<div class="addr">${addr.slice(0,6)}...${addr.slice(-4)}</div><div class="nonce ${nc}">${nonce.toLocaleString()}</div><span class="shard s${shard}">S${shard}</span>`;
         grid.appendChild(cell);
       });
     }
 
-    // Update stats
     const now = Date.now();
-    const rate = prevTotal > 0 ? Math.round((totalTx - prevTotal) / ((now - prevTime) / 1000)) : 0;
+    const rate = prevTotal > 0 ? Math.max(0, Math.round((totalTx - prevTotal) / ((now - prevTime) / 1000))) : 0;
+
+    if (totalTx !== prevTotal && prevTotal > 0) {
+      addFeedLine(`📊 +${(totalTx - prevTotal).toLocaleString()} tx | Rate: <span>${rate.toLocaleString()} tx/s</span> | Active: ${activeCount}`);
+    }
     prevTotal = totalTx;
     prevTime = now;
 
     document.getElementById('totalTx').textContent = totalTx.toLocaleString();
-    document.getElementById('txRate').textContent = Math.max(0, rate).toLocaleString();
+    document.getElementById('txRate').textContent = rate.toLocaleString();
     document.getElementById('activeWallets').textContent = activeCount;
 
     const pct = Math.min(100, (totalTx / MILESTONE) * 100);
     document.getElementById('milestone').textContent = pct.toFixed(1) + '%';
     document.getElementById('milestoneBar').style.width = pct + '%';
 
-    // Chart
     txHistory.push(totalTx);
     txHistory.shift();
     const maxH = Math.max(...txHistory.filter(x => x > 0), 1);
@@ -393,11 +485,9 @@ async function fetchWallets() {
     for (let i = 0; i < bars.length && i < txHistory.length; i++) {
       bars[i].style.height = Math.max(2, (txHistory[i] / maxH) * 120) + 'px';
     }
-
-  } catch(e) { console.error('Wallet fetch error:', e); }
+  } catch(e) { console.error('Wallet fetch:', e); }
 }
 
-// Load saved address
 const saved = localStorage.getItem('gl_addr');
 if (saved) { document.getElementById('addrInput').value = saved; startTracking(); }
 </script>
