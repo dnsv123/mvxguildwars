@@ -3,279 +3,396 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🚀 Challenge 3: Crossover — Live Monitor</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+<title>🚀 Challenge 3: Crossover — Live Telemetry</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Outfit', sans-serif;
-    background: #0a0a1a;
-    color: #e0e0ff;
+    background: #060612;
+    color: #c0d0ff;
     min-height: 100vh;
     overflow-x: hidden;
   }
-  .bg-grid {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
-    background-image: 
-      linear-gradient(rgba(100,200,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(100,200,255,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-  .container { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  /* === ANIMATED BACKGROUND === */
+  .bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
   
-  header {
-    text-align: center; padding: 30px 0 20px;
-    background: linear-gradient(135deg, rgba(0,200,100,0.1), rgba(0,100,255,0.1));
-    border-radius: 20px; margin-bottom: 24px;
-    border: 1px solid rgba(0,200,100,0.2);
+  .hex-grid {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.06;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0L60 15v22L30 52 0 37V15z' fill='none' stroke='%2300aaff' stroke-width='0.5'/%3E%3C/svg%3E");
+    background-size: 60px 52px;
   }
-  header h1 { font-size: 2.2rem; font-weight: 900; 
-    background: linear-gradient(135deg, #00ff88, #00aaff);
+
+  /* Floating data particles */
+  .particle {
+    position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+    animation: float-up linear infinite;
+  }
+  @keyframes float-up {
+    0% { transform: translateY(100vh) scale(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.6; }
+    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+  }
+
+  /* Scan line */
+  .scanline {
+    position: fixed; top: 0; left: 0; width: 100%; height: 2px; z-index: 1;
+    background: linear-gradient(90deg, transparent, #00ff8840, #00aaff60, #00ff8840, transparent);
+    animation: scan 4s linear infinite;
+  }
+  @keyframes scan { 0% { top: -2px; } 100% { top: 100vh; } }
+
+  .container { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+  /* === HEADER === */
+  header {
+    text-align: center; padding: 24px 20px; margin-bottom: 16px;
+    background: linear-gradient(135deg, rgba(0,40,20,0.6), rgba(0,20,60,0.6));
+    border-radius: 16px; border: 1px solid rgba(0,255,136,0.15);
+    position: relative; overflow: hidden;
+  }
+  header::before {
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(0,255,136,0.03), transparent, rgba(0,170,255,0.03), transparent);
+    animation: rotateBg 20s linear infinite;
+  }
+  @keyframes rotateBg { 100% { transform: rotate(360deg); } }
+  header * { position: relative; }
+  header h1 { font-size: 1.8rem; font-weight: 900; letter-spacing: 2px;
+    background: linear-gradient(135deg, #00ff88, #00ddff, #aa88ff);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  header .subtitle { color: #88aacc; font-size: 1rem; margin-top: 4px; }
-  header .guild-name { font-size: 1.4rem; color: #00ff88; margin-top: 8px; font-weight: 700; }
+  .subtitle { color: #6688aa; font-size: 0.85rem; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .guild { font-size: 1.1rem; color: #00ff88; margin-top: 6px; font-weight: 700; }
 
-  .countdown-bar {
-    background: linear-gradient(135deg, #1a1a3a, #0d0d2a);
-    border: 1px solid rgba(0,200,100,0.3); border-radius: 16px;
-    padding: 20px 30px; margin-bottom: 24px; text-align: center;
+  /* === PHASE BAR === */
+  .phase-bar {
+    background: rgba(10,10,30,0.8); border: 1px solid rgba(0,255,136,0.2); border-radius: 14px;
+    padding: 16px 24px; margin-bottom: 16px; text-align: center;
+    backdrop-filter: blur(10px); position: relative; overflow: hidden;
   }
-  .countdown-bar .label { font-size: 0.9rem; color: #88aacc; }
-  .countdown-bar .time { font-size: 3rem; font-weight: 900; color: #00ff88; font-variant-numeric: tabular-nums; }
-  .countdown-bar .phase { font-size: 1.1rem; color: #ffaa00; font-weight: 700; margin-top: 4px; }
-
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .stat-card {
-    background: linear-gradient(135deg, #1a1a3a, #12122a);
-    border: 1px solid rgba(100,200,255,0.15); border-radius: 16px;
-    padding: 20px; text-align: center;
-    transition: transform 0.2s, border-color 0.3s;
+  .phase-bar::after {
+    content: ''; position: absolute; bottom: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, #00ff88, #00aaff, #aa88ff);
+    animation: progressPulse 3s ease-in-out infinite;
   }
-  .stat-card:hover { transform: translateY(-2px); border-color: rgba(0,255,136,0.4); }
-  .stat-card .value { font-size: 2rem; font-weight: 900; color: #fff; }
-  .stat-card .label { font-size: 0.85rem; color: #88aacc; margin-top: 4px; }
-  .stat-card.highlight { border-color: rgba(0,255,136,0.5); background: linear-gradient(135deg, #0a2a1a, #12122a); }
-  .stat-card.highlight .value { color: #00ff88; }
-  .stat-card.warn .value { color: #ffaa00; }
-
-  .timeline {
-    background: linear-gradient(135deg, #1a1a3a, #12122a);
-    border: 1px solid rgba(100,200,255,0.15); border-radius: 16px;
-    padding: 24px; margin-bottom: 24px;
+  @keyframes progressPulse { 0%,100% { width: 30%; opacity: 0.4; } 50% { width: 100%; opacity: 1; } }
+  .phase-name { font-size: 1rem; font-weight: 700; }
+  .countdown { font-size: 2.8rem; font-weight: 900; font-family: 'JetBrains Mono', monospace;
+    background: linear-gradient(135deg, #00ff88, #00ddff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 40px rgba(0,255,136,0.3);
   }
-  .timeline h2 { font-size: 1.2rem; margin-bottom: 16px; color: #00aaff; }
-  .timeline-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .timeline-row:last-child { border-bottom: none; }
-  .timeline-row .dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; }
-  .dot.done { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
-  .dot.active { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; animation: pulse 1.5s infinite; }
-  .dot.pending { background: #333; }
-  .timeline-row .time-label { width: 100px; color: #88aacc; font-size: 0.85rem; }
-  .timeline-row .event { flex: 1; font-weight: 600; }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
+  /* === SHARD VISUALIZATION === */
+  .shard-viz {
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    margin-bottom: 16px; padding: 16px;
+    background: rgba(10,10,30,0.6); border: 1px solid rgba(100,200,255,0.1); border-radius: 14px;
+  }
+  .shard-node {
+    width: 80px; height: 80px; border-radius: 50%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-weight: 900; font-size: 0.75rem;
+    border: 2px solid; position: relative;
+    transition: all 0.3s; cursor: default;
+  }
+  .shard-node .shard-id { font-size: 1.2rem; font-family: 'JetBrains Mono'; }
+  .shard-0 { border-color: #ff6666; color: #ff8888; background: rgba(255,50,50,0.08); }
+  .shard-1 { border-color: #66ff66; color: #88ff88; background: rgba(50,255,50,0.08); }
+  .shard-2 { border-color: #6688ff; color: #88aaff; background: rgba(50,100,255,0.08); }
+  .shard-arrow {
+    font-size: 1.4rem; color: #00ff88; animation: arrowPulse 1.5s ease-in-out infinite;
+    font-family: 'JetBrains Mono'; min-width: 40px; text-align: center;
+  }
+  @keyframes arrowPulse { 0%,100% { opacity: 0.3; transform: translateX(0); } 50% { opacity: 1; transform: translateX(4px); } }
+  .shard-node.active { animation: shardGlow 2s ease-in-out infinite; }
+  @keyframes shardGlow { 0%,100% { box-shadow: 0 0 10px rgba(0,255,136,0.1); } 50% { box-shadow: 0 0 25px rgba(0,255,136,0.4); } }
+
+  /* === STATS GRID === */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat {
+    background: rgba(10,10,30,0.7); border: 1px solid rgba(100,200,255,0.1);
+    border-radius: 12px; padding: 14px; text-align: center;
+    backdrop-filter: blur(8px); transition: border-color 0.3s;
+  }
+  .stat:hover { border-color: rgba(0,255,136,0.3); }
+  .stat .val { font-size: 1.6rem; font-weight: 900; font-family: 'JetBrains Mono'; color: #fff; }
+  .stat .lbl { font-size: 0.75rem; color: #6688aa; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+  .stat.primary { border-color: rgba(0,255,136,0.3); }
+  .stat.primary .val { color: #00ff88; font-size: 2rem; }
+  .stat.warn .val { color: #ffaa00; }
+  .stat.danger .val { color: #ff6666; }
+
+  /* === TX RATE CHART === */
+  .chart-box {
+    background: rgba(10,10,30,0.7); border: 1px solid rgba(100,200,255,0.1);
+    border-radius: 14px; padding: 16px; margin-bottom: 16px;
+  }
+  .chart-box h3 { font-size: 0.85rem; color: #00aaff; margin-bottom: 8px; font-family: 'JetBrains Mono'; }
+  .chart-container { height: 100px; display: flex; align-items: flex-end; gap: 2px; overflow: hidden; }
+  .chart-bar {
+    flex: 1; min-width: 3px; background: linear-gradient(to top, #00ff8800, #00ff88);
+    border-radius: 2px 2px 0 0; transition: height 0.5s ease;
+    position: relative;
+  }
+  .chart-bar:hover { background: linear-gradient(to top, #00aaff00, #00aaff); }
+
+  /* === LIVE LOG === */
+  .log-section { margin-bottom: 16px; }
+  .log-section h3 { font-size: 0.85rem; color: #00aaff; margin-bottom: 8px; font-family: 'JetBrains Mono'; }
   .log-box {
-    background: #0d0d1a; border: 1px solid rgba(100,200,255,0.1); border-radius: 12px;
-    padding: 16px; font-family: 'Courier New', monospace; font-size: 0.8rem;
-    max-height: 200px; overflow-y: auto; color: #66cc88; line-height: 1.6;
+    background: rgba(5,5,15,0.9); border: 1px solid rgba(0,255,136,0.1); border-radius: 10px;
+    padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    max-height: 150px; overflow-y: auto; line-height: 1.5;
   }
-  .log-box .entry { padding: 2px 0; }
-  .log-box .entry.error { color: #ff6666; }
+  .log-entry { padding: 1px 0; color: #4488aa; }
+  .log-entry .ts { color: #336; }
+  .log-entry .msg { color: #66cc88; }
+  .log-entry.err .msg { color: #ff6666; }
 
-  .footer { text-align: center; padding: 20px; color: #556; font-size: 0.8rem; }
-  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00ff88; margin-right: 6px; animation: pulse 1.5s infinite; }
-
-  .leaderboard-link { 
-    display: block; text-align: center; padding: 14px; margin-bottom: 24px;
-    background: linear-gradient(135deg, #1a0a3a, #0a1a3a); 
-    border: 1px solid rgba(150,100,255,0.3); border-radius: 12px;
-    color: #aa88ff; text-decoration: none; font-weight: 700; font-size: 1.1rem;
-    transition: all 0.3s;
+  /* === TIMELINE === */
+  .timeline {
+    background: rgba(10,10,30,0.6); border: 1px solid rgba(100,200,255,0.1);
+    border-radius: 14px; padding: 16px; margin-bottom: 16px;
   }
-  .leaderboard-link:hover { border-color: #aa88ff; background: linear-gradient(135deg, #2a1a4a, #1a2a4a); }
+  .timeline h3 { font-size: 0.85rem; color: #00aaff; margin-bottom: 10px; font-family: 'JetBrains Mono'; }
+  .tl-row { display: flex; align-items: center; padding: 6px 0; }
+  .tl-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; transition: all 0.5s; }
+  .tl-dot.done { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+  .tl-dot.active { background: #ffaa00; box-shadow: 0 0 12px #ffaa00; animation: pulse 1.5s infinite; }
+  .tl-dot.pending { background: #222; border: 1px solid #333; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+  .tl-time { width: 80px; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #556; }
+  .tl-event { flex: 1; font-size: 0.85rem; }
+
+  /* === LEADERBOARD LINK === */
+  .lb-link {
+    display: block; text-align: center; padding: 12px; margin-bottom: 16px;
+    background: linear-gradient(135deg, rgba(100,50,200,0.15), rgba(0,100,200,0.15));
+    border: 1px solid rgba(150,100,255,0.2); border-radius: 10px;
+    color: #aa88ff; text-decoration: none; font-weight: 700; font-size: 0.95rem;
+    transition: all 0.3s; font-family: 'JetBrains Mono';
+  }
+  .lb-link:hover { border-color: #aa88ff; transform: translateY(-1px); }
+
+  .footer { text-align: center; padding: 12px; color: #334; font-size: 0.7rem; font-family: 'JetBrains Mono'; }
+  .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00ff88; margin-right: 4px; animation: pulse 1.5s infinite; }
 </style>
 </head>
 <body>
-<div class="bg-grid"></div>
+<canvas class="bg-canvas" id="bgCanvas"></canvas>
+<div class="hex-grid"></div>
+<div class="scanline"></div>
+
 <div class="container">
   <header>
-    <h1>🚀 CHALLENGE 3: CROSSOVER</h1>
-    <div class="subtitle">Cross-Shard Only | 3 Shard Workers | Block Heartbeat</div>
-    <div class="guild-name">💚 OpenHeart Guild — Powered by SuperVictor 💚</div>
+    <h1>⚡ CROSSOVER TELEMETRY</h1>
+    <div class="subtitle">CHALLENGE 3 // CROSS-SHARD ONLY // BLOCK HEARTBEAT</div>
+    <div class="guild">💚 OpenHeart Guild — Powered by SuperVictor 💚</div>
   </header>
 
-  <div class="countdown-bar">
-    <div class="label">CURRENT PHASE</div>
-    <div class="phase" id="phase">⏳ WAITING FOR START</div>
-    <div class="time" id="countdown">--:--:--</div>
+  <div class="phase-bar">
+    <div class="phase-name" id="phase">⏳ INITIALIZING...</div>
+    <div class="countdown" id="countdown">--:--:--</div>
+  </div>
+
+  <div class="shard-viz">
+    <div class="shard-node shard-0" id="sn0"><div class="shard-id">S0</div><div id="s0c">0 tx</div></div>
+    <div class="shard-arrow">→→</div>
+    <div class="shard-node shard-1" id="sn1"><div class="shard-id">S1</div><div id="s1c">0 tx</div></div>
+    <div class="shard-arrow">→→</div>
+    <div class="shard-node shard-2" id="sn2"><div class="shard-id">S2</div><div id="s2c">0 tx</div></div>
+    <div class="shard-arrow">→→</div>
+    <div class="shard-node shard-0" style="opacity:0.5;border-style:dashed"><div class="shard-id">S0</div><div>↩</div></div>
   </div>
 
   <div class="stats-grid">
-    <div class="stat-card highlight" id="tx-card">
-      <div class="value" id="tx-count">0</div>
-      <div class="label">Cross-Shard TX (from API)</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="tx-rate">0</div>
-      <div class="label">TX/second</div>
-    </div>
-    <div class="stat-card warn">
-      <div class="value" id="cost">0.00</div>
-      <div class="label">EGLD Cost</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="wallets">0 / 500</div>
-      <div class="label">Active Wallets</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="gl-balance">--</div>
-      <div class="label">GL Balance (EGLD)</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="errors">0</div>
-      <div class="label">Errors</div>
-    </div>
+    <div class="stat primary"><div class="val" id="txTotal">0</div><div class="lbl">Cross-Shard TX</div></div>
+    <div class="stat"><div class="val" id="txRate">0</div><div class="lbl">TX / Second</div></div>
+    <div class="stat warn"><div class="val" id="costEgld">0.00</div><div class="lbl">EGLD Spent</div></div>
+    <div class="stat"><div class="val" id="glBal">--</div><div class="lbl">GL Balance</div></div>
+    <div class="stat"><div class="val" id="walletCount">500</div><div class="lbl">Wallets</div></div>
+    <div class="stat danger"><div class="val" id="errCount">0</div><div class="lbl">Errors</div></div>
   </div>
 
-  <a class="leaderboard-link" href="https://bon.multiversx.com/guild-wars" target="_blank">
-    📊 OPEN LIVE LEADERBOARD → bon.multiversx.com/guild-wars
+  <div class="chart-box">
+    <h3>📈 TX RATE OVER TIME</h3>
+    <div class="chart-container" id="chart"></div>
+  </div>
+
+  <a class="lb-link" href="https://bon.multiversx.com/guild-wars" target="_blank">
+    📊 OPEN OFFICIAL LEADERBOARD → bon.multiversx.com/guild-wars
   </a>
 
   <div class="timeline">
-    <h2>📅 Timeline</h2>
-    <div class="timeline-row"><div class="dot" id="dot-dist1"></div><div class="time-label">15:45 UTC</div><div class="event">Distribute Part 1 (2000 EGLD → 500 wallets)</div></div>
-    <div class="timeline-row"><div class="dot" id="dot-p1s"></div><div class="time-label">16:00 UTC</div><div class="event">🔥 Part 1 START — Fire cross-shard!</div></div>
-    <div class="timeline-row"><div class="dot" id="dot-p1e"></div><div class="time-label">16:30 UTC</div><div class="event">Part 1 END — Generate Part 2 wallets</div></div>
-    <div class="timeline-row"><div class="dot" id="dot-dist2"></div><div class="time-label">16:31 UTC</div><div class="event">Distribute Part 2 (500 EGLD → 500 wallets)</div></div>
-    <div class="timeline-row"><div class="dot" id="dot-p2s"></div><div class="time-label">17:00 UTC</div><div class="event">🔥 Part 2 START — Fire 0.01 EGLD per tx!</div></div>
-    <div class="timeline-row"><div class="dot" id="dot-p2e"></div><div class="time-label">17:30 UTC</div><div class="event">✅ CHALLENGE ENDS</div></div>
+    <h3>📅 MISSION TIMELINE</h3>
+    <div class="tl-row"><div class="tl-dot" id="d1"></div><div class="tl-time">15:45</div><div class="tl-event">📦 Distribute 2000 EGLD → 500 wallets</div></div>
+    <div class="tl-row"><div class="tl-dot" id="d2"></div><div class="tl-time">16:00</div><div class="tl-event">🔥 Part 1 — FIRE cross-shard!</div></div>
+    <div class="tl-row"><div class="tl-dot" id="d3"></div><div class="tl-time">16:30</div><div class="tl-event">⏸️ Break — Gen Part 2 wallets</div></div>
+    <div class="tl-row"><div class="tl-dot" id="d4"></div><div class="tl-time">16:31</div><div class="tl-event">📦 Distribute 500 EGLD → 500 wallets</div></div>
+    <div class="tl-row"><div class="tl-dot" id="d5"></div><div class="tl-time">17:00</div><div class="tl-event">🔥 Part 2 — FIRE 0.01 EGLD/tx!</div></div>
+    <div class="tl-row"><div class="tl-dot" id="d6"></div><div class="tl-time">17:30</div><div class="tl-event">✅ CHALLENGE COMPLETE</div></div>
   </div>
 
-  <h3 style="margin-bottom:8px; color:#00aaff;">📋 Live Log (GL Wallet Activity)</h3>
-  <div class="log-box" id="log-box">
-    <div class="entry">Waiting for challenge to start...</div>
+  <div class="log-section">
+    <h3>📋 TELEMETRY LOG</h3>
+    <div class="log-box" id="logBox"><div class="log-entry"><span class="ts">[SYS]</span> <span class="msg">Telemetry initialized. Waiting for challenge start...</span></div></div>
   </div>
 
-  <div class="footer">
-    <span class="pulse-dot"></span> Auto-refreshing every 10s | Gateway: Kepler Private | Shard Fix: ✅ Applied
-  </div>
+  <div class="footer"><span class="live-dot"></span>AUTO-REFRESH 10s | KEPLER PRIVATE GATEWAY | SHARD FIX APPLIED | OpenHeart © 2026</div>
 </div>
 
 <script>
-const GL_ADDR = 'erd158rt37truyh2yl5s0fp83nw9u2llmsxhr8g298eugt9x0w03d23qc8n9ng';
-const API = 'https://api.battleofnodes.com';
-const SCHEDULE = {
-  dist1: new Date('2026-03-24T15:45:00Z'),
-  p1s:   new Date('2026-03-24T16:00:00Z'),
-  p1e:   new Date('2026-03-24T16:30:00Z'),
-  dist2: new Date('2026-03-24T16:31:00Z'),
-  p2s:   new Date('2026-03-24T17:00:00Z'),
-  p2e:   new Date('2026-03-24T17:30:00Z'),
-};
+// === PARTICLE BACKGROUND ===
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
 
-let lastTxCount = 0;
-let lastTime = Date.now();
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W; this.y = H + 10;
+    this.speed = 0.3 + Math.random() * 1.5;
+    this.size = Math.random() * 2;
+    this.color = ['#00ff88','#00aaff','#aa88ff','#ffaa00'][Math.floor(Math.random()*4)];
+    this.opacity = 0.1 + Math.random() * 0.4;
+    this.drift = (Math.random() - 0.5) * 0.5;
+  }
+  update() {
+    this.y -= this.speed; this.x += this.drift;
+    if (this.y < -10) this.reset();
+  }
+  draw() {
+    ctx.globalAlpha = this.opacity;
+    ctx.fillStyle = this.color;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+    // Trail
+    ctx.globalAlpha = this.opacity * 0.3;
+    ctx.beginPath(); ctx.arc(this.x, this.y + 5, this.size * 0.5, 0, Math.PI*2); ctx.fill();
+  }
+}
+for (let i = 0; i < 80; i++) { const p = new Particle(); p.y = Math.random() * H; particles.push(p); }
 
-function getPhase() {
-  const now = new Date();
-  if (now < SCHEDULE.dist1) return { name: '⏳ WAITING — Distribution at 15:45 UTC', next: SCHEDULE.dist1, color: '#88aacc' };
-  if (now < SCHEDULE.p1s) return { name: '📦 DISTRIBUTING Part 1 Funds', next: SCHEDULE.p1s, color: '#ffaa00' };
-  if (now < SCHEDULE.p1e) return { name: '🔥 PART 1 — FIRING CROSS-SHARD!', next: SCHEDULE.p1e, color: '#00ff88' };
-  if (now < SCHEDULE.dist2) return { name: '⏸️ BREAK — Generating Part 2 Wallets', next: SCHEDULE.dist2, color: '#ffaa00' };
-  if (now < SCHEDULE.p2s) return { name: '📦 DISTRIBUTING Part 2 Funds', next: SCHEDULE.p2s, color: '#ffaa00' };
-  if (now < SCHEDULE.p2e) return { name: '🔥 PART 2 — FIRING 0.01 EGLD!', next: SCHEDULE.p2e, color: '#ff6600' };
-  return { name: '✅ CHALLENGE COMPLETE!', next: null, color: '#00ff88' };
+// Connection lines between nearby particles
+function drawConnections() {
+  ctx.globalAlpha = 0.05; ctx.strokeStyle = '#00aaff'; ctx.lineWidth = 0.5;
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i+1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 100) {
+        ctx.globalAlpha = 0.03 * (1 - dist/100);
+        ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
+      }
+    }
+  }
 }
 
-function updateCountdown() {
-  const phase = getPhase();
-  document.getElementById('phase').textContent = phase.name;
-  document.getElementById('phase').style.color = phase.color;
-  if (phase.next) {
-    const diff = phase.next - new Date();
-    if (diff > 0) {
-      const h = Math.floor(diff/3600000);
-      const m = Math.floor((diff%3600000)/60000);
-      const s = Math.floor((diff%60000)/1000);
-      document.getElementById('countdown').textContent = 
-        `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-    } else {
-      document.getElementById('countdown').textContent = '00:00:00';
-    }
-  } else {
-    document.getElementById('countdown').textContent = 'DONE';
-  }
+function animateBg() {
+  ctx.clearRect(0,0,W,H);
+  particles.forEach(p => { p.update(); p.draw(); });
+  drawConnections();
+  requestAnimationFrame(animateBg);
+}
+animateBg();
 
-  // Update timeline dots
-  const now = new Date();
-  const dots = [
-    ['dot-dist1', SCHEDULE.dist1, SCHEDULE.p1s],
-    ['dot-p1s', SCHEDULE.p1s, SCHEDULE.p1e],
-    ['dot-p1e', SCHEDULE.p1e, SCHEDULE.dist2],
-    ['dot-dist2', SCHEDULE.dist2, SCHEDULE.p2s],
-    ['dot-p2s', SCHEDULE.p2s, SCHEDULE.p2e],
-    ['dot-p2e', SCHEDULE.p2e, null],
-  ];
-  dots.forEach(([id, start, end]) => {
-    const el = document.getElementById(id);
-    if (now >= start && (!end || now < end)) el.className = 'dot active';
-    else if (now >= start) el.className = 'dot done';
-    else el.className = 'dot pending';
+// === DATA ===
+const GL = 'erd158rt37truyh2yl5s0fp83nw9u2llmsxhr8g298eugt9x0w03d23qc8n9ng';
+const API = 'https://api.battleofnodes.com';
+const S = { d1:new Date('2026-03-24T15:45:00Z'), d2:new Date('2026-03-24T16:00:00Z'), d3:new Date('2026-03-24T16:30:00Z'), d4:new Date('2026-03-24T16:31:00Z'), d5:new Date('2026-03-24T17:00:00Z'), d6:new Date('2026-03-24T17:30:00Z') };
+let lastTx=0, lastT=Date.now(), chartData=[];
+
+function getPhase() {
+  const n=new Date();
+  if(n<S.d1) return {nm:'⏳ STANDBY — Distribution at 15:45 UTC',next:S.d1,c:'#6688aa'};
+  if(n<S.d2) return {nm:'📦 DISTRIBUTING — Funding 500 wallets',next:S.d2,c:'#ffaa00'};
+  if(n<S.d3) return {nm:'🔥 PART 1 ACTIVE — CROSS-SHARD FIRE!',next:S.d3,c:'#00ff88'};
+  if(n<S.d4) return {nm:'⏸️ BREAK — Generating Part 2',next:S.d4,c:'#ffaa00'};
+  if(n<S.d5) return {nm:'📦 PART 2 PREP — Funding wallets',next:S.d5,c:'#ffaa00'};
+  if(n<S.d6) return {nm:'🔥 PART 2 ACTIVE — 0.01 EGLD/TX!',next:S.d6,c:'#ff6600'};
+  return {nm:'✅ MISSION COMPLETE',next:null,c:'#00ff88'};
+}
+
+function updateUI() {
+  const p=getPhase();
+  document.getElementById('phase').textContent=p.nm;
+  document.getElementById('phase').style.color=p.c;
+  if(p.next){
+    const d=p.next-new Date();
+    if(d>0){const h=Math.floor(d/36e5),m=Math.floor(d%36e5/6e4),s=Math.floor(d%6e4/1e3);
+      document.getElementById('countdown').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }else document.getElementById('countdown').textContent='00:00:00';
+  }else document.getElementById('countdown').textContent='DONE';
+
+  // Timeline dots
+  const n=new Date(), dots=[['d1',S.d1,S.d2],['d2',S.d2,S.d3],['d3',S.d3,S.d4],['d4',S.d4,S.d5],['d5',S.d5,S.d6],['d6',S.d6,null]];
+  dots.forEach(([id,s,e])=>{const el=document.getElementById(id);
+    if(n>=s&&(!e||n<e))el.className='tl-dot active';else if(n>=s)el.className='tl-dot done';else el.className='tl-dot pending';});
+
+  // Shard glow when active
+  const firing = n>=S.d2&&n<S.d3 || n>=S.d5&&n<S.d6;
+  ['sn0','sn1','sn2'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(firing) el.classList.add('active'); else el.classList.remove('active');
   });
 }
 
-async function fetchGLData() {
+async function fetchData() {
   try {
-    const res = await fetch(`${API}/accounts/${GL_ADDR}`);
-    const data = await res.json();
-    const bal = (Number(BigInt(data.balance || '0')) / 1e18).toFixed(2);
-    document.getElementById('gl-balance').textContent = bal;
-    document.getElementById('wallets').textContent = `${data.txCount || 0} tx sent`;
-  } catch(e) { console.log('GL fetch error:', e); }
+    const [accRes, txRes] = await Promise.all([
+      fetch(`${API}/accounts/${GL}`), fetch(`${API}/accounts/${GL}/transactions/count`)
+    ]);
+    const acc = await accRes.json(), txCount = await txRes.json();
+    const bal = (Number(BigInt(acc.balance||'0'))/1e18).toFixed(2);
+    document.getElementById('glBal').textContent = bal;
+
+    const now = Date.now(), elapsed = (now-lastT)/1000;
+    const rate = elapsed>0 ? Math.round((txCount-lastTx)/elapsed) : 0;
+    if(txCount>lastTx){ lastTx=txCount; lastT=now; }
+
+    document.getElementById('txTotal').textContent = txCount.toLocaleString();
+    document.getElementById('txRate').textContent = rate.toLocaleString();
+    document.getElementById('costEgld').textContent = (txCount*0.00005).toFixed(2);
+
+    // Chart
+    chartData.push(Math.min(rate, 5000));
+    if(chartData.length > 60) chartData.shift();
+    renderChart();
+
+    addLog(`TX: ${txCount.toLocaleString()} | Rate: ${rate}/s | GL: ${bal} EGLD`);
+  } catch(e) { addLog(`API error: ${e.message}`, true); }
 }
 
-async function fetchTxCount() {
-  try {
-    const res = await fetch(`${API}/accounts/${GL_ADDR}/transfers/count`);
-    const count = await res.json();
-    const now = Date.now();
-    const elapsed = (now - lastTime) / 1000;
-    const rate = elapsed > 0 ? Math.round((count - lastTxCount) / elapsed) : 0;
-    
-    if (count > lastTxCount) {
-      document.getElementById('tx-rate').textContent = rate.toLocaleString();
-      lastTxCount = count;
-      lastTime = now;
-    }
-    document.getElementById('tx-count').textContent = count.toLocaleString();
-    
-    // Estimate cost
-    const fee = 0.00005;
-    document.getElementById('cost').textContent = (count * fee).toFixed(2);
-    
-    addLog(`TX count: ${count.toLocaleString()} | Rate: ${rate} tx/s | GL bal: ${document.getElementById('gl-balance').textContent} EGLD`);
-  } catch(e) { console.log('TX fetch error:', e); }
+function renderChart() {
+  const box = document.getElementById('chart');
+  const max = Math.max(1, ...chartData);
+  box.innerHTML = chartData.map((v,i) => 
+    `<div class="chart-bar" style="height:${Math.max(2, v/max*100)}%;opacity:${0.3+0.7*(i/chartData.length)}" title="${v} tx/s"></div>`
+  ).join('');
 }
 
-function addLog(msg) {
-  const box = document.getElementById('log-box');
-  const entry = document.createElement('div');
-  entry.className = 'entry';
-  const time = new Date().toISOString().slice(11,19);
-  entry.textContent = `[${time}] ${msg}`;
-  box.appendChild(entry);
-  box.scrollTop = box.scrollHeight;
-  // Keep max 50 entries
-  while (box.children.length > 50) box.removeChild(box.firstChild);
+function addLog(msg, isErr=false) {
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (isErr?' err':'');
+  const ts = new Date().toISOString().slice(11,19);
+  div.innerHTML = `<span class="ts">[${ts}]</span> <span class="msg">${msg}</span>`;
+  box.appendChild(div); box.scrollTop = box.scrollHeight;
+  while(box.children.length > 40) box.removeChild(box.firstChild);
 }
 
 // Init
-updateCountdown();
-setInterval(updateCountdown, 1000);
-fetchGLData();
-setInterval(fetchGLData, 15000);
-setInterval(fetchTxCount, 10000);
+updateUI(); setInterval(updateUI, 1000);
+fetchData(); setInterval(fetchData, 10000);
+
+// Init chart with empty data
+for(let i=0;i<30;i++) chartData.push(0);
+renderChart();
 </script>
 </body>
 </html>
