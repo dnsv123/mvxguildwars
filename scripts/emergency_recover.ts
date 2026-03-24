@@ -24,7 +24,7 @@ async function main() {
 
   // Test first wallet
   const testAddr = new Address(wallets[0].address);
-  const testAcc = await provider.getAccount(testAddr);
+  const testAcc = await provider.getAccount(testAddr as any);
   console.log(`🧪 wallet[0] balance: ${Number(BigInt(testAcc.balance.toString()))/1e18} EGLD, nonce: ${testAcc.nonce}`);
 
   let recovered = 0, skipped = 0, totalRecovered = BigInt(0);
@@ -34,7 +34,7 @@ async function main() {
     const promises = batch.map(async (w) => {
       try {
         const addr = new Address(w.address);
-        const acc = await provider.getAccount(addr);
+        const acc = await provider.getAccount(addr as any);
         const balance = BigInt(acc.balance.toString());
         if (balance <= FEE) { skipped++; return; }
 
