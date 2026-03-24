@@ -1,3 +1,6 @@
 node_modules/
 .env
 wallets.json
+wallets_part1.json
+wallets_part2.json
+*.pem
