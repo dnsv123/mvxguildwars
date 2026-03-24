@@ -56,19 +56,19 @@ const GAS_LIMIT       = BigInt(50_000);
 const GAS_PRICE_STD   = BigInt(1_000_000_000);
 const CHAIN_ID        = "B";                 // Hardcoded — no getNetworkConfig!
 
-// Gas strategy: 3x for PRIORITY in mempool (budget is massive, network is bottleneck)
-// Math: 5M tx × 0.00015 fee = 750 EGLD (well under 2000 cap). Priority > quantity.
-const PART_1_GAS_X    = BigInt(3);
-const PART_2_GAS_X    = BigInt(3);
+// Gas strategy: 5x for MAXIMUM mempool priority! Most competitors use 1-3x.
+// Math: 5M tx × 0.00025 fee = 1250 EGLD (under 2000 cap). Priority > quantity!
+const PART_1_GAS_X    = BigInt(5);
+const PART_2_GAS_X    = BigInt(5);
 
 // BUDGET CAPS (must NOT exceed!)
 const PART_1_BUDGET   = 2000; // EGLD
 const PART_2_BUDGET   = 500;  // EGLD
 
-// Part 1 @3x gas: fee = 0.00015/tx → 4 EGLD/wallet / 0.00015 = 26,666 max → safe at 26,000
-const PART_1_MAX_TX   = 26_000;
-// Part 2 @3x gas: cost = 0.01 + 0.00015 = 0.01015/tx → 1 EGLD / 0.01015 = 98.5 → 98
-const PART_2_MAX_TX   = 98;
+// Part 1 @5x gas: fee = 0.00025/tx → 4 EGLD/wallet / 0.00025 = 16,000 max → safe at 15,500
+const PART_1_MAX_TX   = 15_500;
+// Part 2 @5x gas: cost = 0.01 + 0.00025 = 0.01025/tx → 1 EGLD / 0.01025 = 97.5 → 97
+const PART_2_MAX_TX   = 97;
 
 // Part 1: distribute ~4 EGLD each (2000/500), keep 500 for Part 2
 const DIST_AMT_PART1  = BigInt("4000000000000000000"); // 4 EGLD
