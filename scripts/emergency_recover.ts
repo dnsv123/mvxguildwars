@@ -14,7 +14,7 @@ const txComputer = new TransactionComputer();
 async function getBalance(addr: string): Promise<{balance: bigint, nonce: number}> {
   const res = await fetch(`${API}/accounts/${addr}`);
   if (!res.ok) throw new Error(`API ${res.status}`);
-  const d = await res.json();
+  const d: any = await res.json();
   return { balance: BigInt(d.balance), nonce: d.nonce };
 }
 
