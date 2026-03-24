@@ -56,18 +56,22 @@ const GAS_LIMIT       = BigInt(50_000);
 const GAS_PRICE_STD   = BigInt(1_000_000_000);
 const CHAIN_ID        = "B";                 // Hardcoded — no getNetworkConfig!
 
-// Gas strategy: 5x for MAXIMUM mempool priority! Most competitors use 1-3x.
-// Math: 5M tx × 0.00025 fee = 1250 EGLD (under 2000 cap). Priority > quantity!
-const PART_1_GAS_X    = BigInt(5);
-const PART_2_GAS_X    = BigInt(5);
+// ═══ 2-TIER BURST GAS STRATEGY ═══
+// Pre-signed burst: 8x gas → DOMINATES mempool at 16:00:00 instant!
+// Inline after:     3x gas → Still above competition (most use 1-2x)
+// Budget: 500×0.0004 + 24,500×0.00015 = 0.2+3.675 = 3.875/4 EGLD per wallet ✅
+const BURST_GAS_X     = BigInt(8);  // Pre-signed first blast
+const PART_1_GAS_X    = BigInt(3);  // Inline sustained fire
+const PART_2_GAS_X    = BigInt(3);  // Part 2 inline
+const BURST_GAS_X_P2  = BigInt(8);  // Part 2 pre-signed burst
 
 // BUDGET CAPS (must NOT exceed!)
 const PART_1_BUDGET   = 2000; // EGLD
 const PART_2_BUDGET   = 500;  // EGLD
 
-// Part 1 @5x gas: fee = 0.00025/tx → 4 EGLD/wallet / 0.00025 = 16,000 max → safe at 15,500
-const PART_1_MAX_TX   = 15_500;
-// Part 2 @5x gas: cost = 0.01 + 0.00025 = 0.01025/tx → 1 EGLD / 0.01025 = 97.5 → 97
+// Part 1: 500 burst @8x + rest @3x → safe at 25,000/wallet (budget: 3.875 EGLD)
+const PART_1_MAX_TX   = 25_000;
+// Part 2: 97 @3x avg (0.01 value dominates, gas barely matters)
 const PART_2_MAX_TX   = 97;
 
 // Part 1: distribute ~4 EGLD each (2000/500), keep 500 for Part 2
@@ -460,19 +464,21 @@ async function fireWindow(
   windowEndISO: string,
 ) {
   const windowEnd = new Date(windowEndISO).getTime();
-  const gasPrice = GAS_PRICE_STD * gasMultiplier;
+  const gasPrice = GAS_PRICE_STD * gasMultiplier;  // 3x for inline
+  const burstGasPrice = GAS_PRICE_STD * BURST_GAS_X; // 8x for first burst!
   const feePerTx = Number(GAS_LIMIT * gasPrice) / 1e18;
   const valuePerTx = Number(txValue) / 1e18;
 
   totalSent = 0;
   totalErrors = 0;
 
-  // Pre-sign for each shard
-  log("⚡", `Pre-signing ${PRE_SIGN_PER_WALLET} tx/wallet for all shards...`);
+  // Pre-sign BURST at 8x gas — these hit mempool FIRST at maximum priority!
+  log("💥", `Pre-signing ${PRE_SIGN_PER_WALLET} tx/wallet at ${BURST_GAS_X}x GAS (BURST PRIORITY!)`);
   const preSignedByGroup: { txsByWallet: Transaction[][]; nextNonces: number[] }[] = [];
   for (const g of shardGroups) {
-    preSignedByGroup.push(await preSignForShard(g, provider, gasPrice, txValue, maxPerWallet));
+    preSignedByGroup.push(await preSignForShard(g, provider, burstGasPrice, txValue, maxPerWallet));
   }
+  log("⚡", `Inline fire will use ${gasMultiplier}x gas (sustained priority)`);
 
   log("✅", `All pre-signed! Firing...`);
 
@@ -496,7 +502,7 @@ async function fireWindow(
   }, STATS_INTERVAL_MS);
 
   // 🔥 FIRE ALL 3 SHARD WORKERS
-  log("🔥", `${label} — 3 SHARD WORKERS FIRING CROSS-SHARD! (${gasMultiplier}x gas, ${maxPerWallet.toLocaleString()} max/wallet, value=${Number(txValue)/1e18} EGLD)`);
+  log("🔥", `${label} — 3 SHARD WORKERS FIRING! (burst=${BURST_GAS_X}x → inline=${gasMultiplier}x gas, ${maxPerWallet.toLocaleString()} max/wallet, value=${Number(txValue)/1e18} EGLD)`);
 
   const results = await Promise.all(
     shardGroups.map((g, i) =>
