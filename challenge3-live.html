@@ -3,396 +3,482 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🚀 Challenge 3: Crossover — Live Telemetry</title>
+<title>⚡ CROSSOVER TELEMETRY — OpenHeart Guild</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Outfit', sans-serif;
-    background: #060612;
-    color: #c0d0ff;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+  body { font-family: 'Outfit', sans-serif; background: #060612; color: #c0d0ff; min-height: 100vh; overflow-x: hidden; }
 
-  /* === ANIMATED BACKGROUND === */
-  .bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-  
-  .hex-grid {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.06;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0L60 15v22L30 52 0 37V15z' fill='none' stroke='%2300aaff' stroke-width='0.5'/%3E%3C/svg%3E");
-    background-size: 60px 52px;
-  }
+  /* === CANVAS BG === */
+  #bgCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+  .scanline { position: fixed; width: 100%; height: 2px; z-index: 1; pointer-events: none;
+    background: linear-gradient(90deg, transparent, #00ff8830, #00aaff50, #00ff8830, transparent);
+    animation: scan 5s linear infinite; }
+  @keyframes scan { 0%{top:-2px} 100%{top:100vh} }
 
-  /* Floating data particles */
-  .particle {
-    position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
-    animation: float-up linear infinite;
-  }
-  @keyframes float-up {
-    0% { transform: translateY(100vh) scale(0); opacity: 0; }
-    10% { opacity: 1; }
-    90% { opacity: 0.6; }
-    100% { transform: translateY(-10vh) scale(1); opacity: 0; }
-  }
-
-  /* Scan line */
-  .scanline {
-    position: fixed; top: 0; left: 0; width: 100%; height: 2px; z-index: 1;
-    background: linear-gradient(90deg, transparent, #00ff8840, #00aaff60, #00ff8840, transparent);
-    animation: scan 4s linear infinite;
-  }
-  @keyframes scan { 0% { top: -2px; } 100% { top: 100vh; } }
-
-  .container { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .container { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 12px; }
 
   /* === HEADER === */
-  header {
-    text-align: center; padding: 24px 20px; margin-bottom: 16px;
-    background: linear-gradient(135deg, rgba(0,40,20,0.6), rgba(0,20,60,0.6));
-    border-radius: 16px; border: 1px solid rgba(0,255,136,0.15);
-    position: relative; overflow: hidden;
-  }
-  header::before {
-    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-    background: conic-gradient(from 0deg, transparent, rgba(0,255,136,0.03), transparent, rgba(0,170,255,0.03), transparent);
-    animation: rotateBg 20s linear infinite;
-  }
-  @keyframes rotateBg { 100% { transform: rotate(360deg); } }
+  header { text-align: center; padding: 18px 16px; margin-bottom: 12px;
+    background: linear-gradient(135deg, rgba(0,40,20,0.5), rgba(0,15,50,0.5));
+    border-radius: 14px; border: 1px solid rgba(0,255,136,0.12); position: relative; overflow: hidden; }
+  header::before { content:''; position:absolute; inset:0;
+    background: conic-gradient(from 0deg, transparent 0%, rgba(0,255,136,0.04) 25%, transparent 50%, rgba(0,170,255,0.04) 75%, transparent 100%);
+    animation: spinBg 25s linear infinite; }
+  @keyframes spinBg { 100%{transform:rotate(360deg)} }
   header * { position: relative; }
-  header h1 { font-size: 1.8rem; font-weight: 900; letter-spacing: 2px;
-    background: linear-gradient(135deg, #00ff88, #00ddff, #aa88ff);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .subtitle { color: #6688aa; font-size: 0.85rem; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
-  .guild { font-size: 1.1rem; color: #00ff88; margin-top: 6px; font-weight: 700; }
+  header h1 { font-size: 1.6rem; font-weight: 900; letter-spacing: 3px;
+    background: linear-gradient(135deg, #00ff88, #00ddff, #bb88ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .sub { color: #4a6a8a; font-size: 0.75rem; font-family: 'JetBrains Mono'; margin-top: 2px; }
+  .guild { font-size: 1rem; color: #00ff88; margin-top: 4px; font-weight: 700; }
 
-  /* === PHASE BAR === */
-  .phase-bar {
-    background: rgba(10,10,30,0.8); border: 1px solid rgba(0,255,136,0.2); border-radius: 14px;
-    padding: 16px 24px; margin-bottom: 16px; text-align: center;
-    backdrop-filter: blur(10px); position: relative; overflow: hidden;
-  }
-  .phase-bar::after {
-    content: ''; position: absolute; bottom: 0; left: 0; height: 2px;
-    background: linear-gradient(90deg, #00ff88, #00aaff, #aa88ff);
-    animation: progressPulse 3s ease-in-out infinite;
-  }
-  @keyframes progressPulse { 0%,100% { width: 30%; opacity: 0.4; } 50% { width: 100%; opacity: 1; } }
-  .phase-name { font-size: 1rem; font-weight: 700; }
-  .countdown { font-size: 2.8rem; font-weight: 900; font-family: 'JetBrains Mono', monospace;
+  /* === PHASE + COUNTDOWN === */
+  .phase-bar { background: rgba(8,8,24,0.8); border: 1px solid rgba(0,255,136,0.15); border-radius: 12px;
+    padding: 14px 20px; margin-bottom: 12px; text-align: center; position: relative; overflow: hidden; }
+  .phase-bar::after { content:''; position:absolute; bottom:0; left:0; height:2px;
+    background: linear-gradient(90deg, #00ff88, #00aaff, #bb88ff);
+    animation: barPulse 3s ease-in-out infinite; }
+  @keyframes barPulse { 0%,100%{width:20%;opacity:0.3} 50%{width:100%;opacity:1} }
+  .phase-nm { font-size: 0.9rem; font-weight: 700; }
+  .cd { font-size: 2.6rem; font-weight: 900; font-family: 'JetBrains Mono';
     background: linear-gradient(135deg, #00ff88, #00ddff);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 40px rgba(0,255,136,0.3);
-  }
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-  /* === SHARD VISUALIZATION === */
-  .shard-viz {
-    display: flex; justify-content: center; align-items: center; gap: 8px;
-    margin-bottom: 16px; padding: 16px;
-    background: rgba(10,10,30,0.6); border: 1px solid rgba(100,200,255,0.1); border-radius: 14px;
-  }
-  .shard-node {
-    width: 80px; height: 80px; border-radius: 50%; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; font-weight: 900; font-size: 0.75rem;
-    border: 2px solid; position: relative;
-    transition: all 0.3s; cursor: default;
-  }
-  .shard-node .shard-id { font-size: 1.2rem; font-family: 'JetBrains Mono'; }
-  .shard-0 { border-color: #ff6666; color: #ff8888; background: rgba(255,50,50,0.08); }
-  .shard-1 { border-color: #66ff66; color: #88ff88; background: rgba(50,255,50,0.08); }
-  .shard-2 { border-color: #6688ff; color: #88aaff; background: rgba(50,100,255,0.08); }
-  .shard-arrow {
-    font-size: 1.4rem; color: #00ff88; animation: arrowPulse 1.5s ease-in-out infinite;
-    font-family: 'JetBrains Mono'; min-width: 40px; text-align: center;
-  }
-  @keyframes arrowPulse { 0%,100% { opacity: 0.3; transform: translateX(0); } 50% { opacity: 1; transform: translateX(4px); } }
-  .shard-node.active { animation: shardGlow 2s ease-in-out infinite; }
-  @keyframes shardGlow { 0%,100% { box-shadow: 0 0 10px rgba(0,255,136,0.1); } 50% { box-shadow: 0 0 25px rgba(0,255,136,0.4); } }
+  /* === SHARD TRIANGLE BOMBARDMENT === */
+  .shard-arena { position: relative; height: 280px; margin-bottom: 12px;
+    background: rgba(6,6,18,0.7); border: 1px solid rgba(100,200,255,0.08); border-radius: 14px; overflow: hidden; }
+  .shard-arena canvas { width: 100%; height: 100%; }
 
-  /* === STATS GRID === */
-  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-  @media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-  .stat {
-    background: rgba(10,10,30,0.7); border: 1px solid rgba(100,200,255,0.1);
-    border-radius: 12px; padding: 14px; text-align: center;
-    backdrop-filter: blur(8px); transition: border-color 0.3s;
-  }
-  .stat:hover { border-color: rgba(0,255,136,0.3); }
-  .stat .val { font-size: 1.6rem; font-weight: 900; font-family: 'JetBrains Mono'; color: #fff; }
-  .stat .lbl { font-size: 0.75rem; color: #6688aa; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
-  .stat.primary { border-color: rgba(0,255,136,0.3); }
-  .stat.primary .val { color: #00ff88; font-size: 2rem; }
-  .stat.warn .val { color: #ffaa00; }
-  .stat.danger .val { color: #ff6666; }
+  /* === SPEEDOMETER === */
+  .gauges { display: flex; gap: 12px; margin-bottom: 12px; }
+  .gauge { flex: 1; background: rgba(8,8,24,0.7); border: 1px solid rgba(100,200,255,0.1);
+    border-radius: 12px; padding: 12px; text-align: center; position: relative; }
+  .gauge canvas { display: block; margin: 0 auto; }
+  .gauge .g-val { font-size: 1.5rem; font-weight: 900; font-family: 'JetBrains Mono'; color: #fff; margin-top: -10px; }
+  .gauge .g-lbl { font-size: 0.7rem; color: #556; text-transform: uppercase; letter-spacing: 1px; }
 
-  /* === TX RATE CHART === */
-  .chart-box {
-    background: rgba(10,10,30,0.7); border: 1px solid rgba(100,200,255,0.1);
-    border-radius: 14px; padding: 16px; margin-bottom: 16px;
-  }
-  .chart-box h3 { font-size: 0.85rem; color: #00aaff; margin-bottom: 8px; font-family: 'JetBrains Mono'; }
-  .chart-container { height: 100px; display: flex; align-items: flex-end; gap: 2px; overflow: hidden; }
-  .chart-bar {
-    flex: 1; min-width: 3px; background: linear-gradient(to top, #00ff8800, #00ff88);
-    border-radius: 2px 2px 0 0; transition: height 0.5s ease;
-    position: relative;
-  }
-  .chart-bar:hover { background: linear-gradient(to top, #00aaff00, #00aaff); }
+  /* === STATS ROW === */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+  @media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .st { background: rgba(8,8,24,0.7); border: 1px solid rgba(100,200,255,0.08);
+    border-radius: 10px; padding: 10px; text-align: center; transition: border-color 0.3s; }
+  .st:hover { border-color: rgba(0,255,136,0.25); }
+  .st .v { font-size: 1.3rem; font-weight: 900; font-family: 'JetBrains Mono'; color: #fff; }
+  .st .l { font-size: 0.65rem; color: #4a6a8a; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .st.primary { border-color: rgba(0,255,136,0.2); }
+  .st.primary .v { color: #00ff88; font-size: 1.6rem; }
+  .st.warn .v { color: #ffaa00; }
 
-  /* === LIVE LOG === */
-  .log-section { margin-bottom: 16px; }
-  .log-section h3 { font-size: 0.85rem; color: #00aaff; margin-bottom: 8px; font-family: 'JetBrains Mono'; }
-  .log-box {
-    background: rgba(5,5,15,0.9); border: 1px solid rgba(0,255,136,0.1); border-radius: 10px;
-    padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
-    max-height: 150px; overflow-y: auto; line-height: 1.5;
-  }
-  .log-entry { padding: 1px 0; color: #4488aa; }
-  .log-entry .ts { color: #336; }
-  .log-entry .msg { color: #66cc88; }
-  .log-entry.err .msg { color: #ff6666; }
+  /* === CHART === */
+  .chart-box { background: rgba(8,8,24,0.7); border: 1px solid rgba(100,200,255,0.08);
+    border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .chart-box h3 { font-size: 0.75rem; color: #00aaff; margin-bottom: 6px; font-family: 'JetBrains Mono'; }
+  .chart-c { height: 80px; display: flex; align-items: flex-end; gap: 1px; }
+  .bar { flex: 1; min-width: 2px; border-radius: 1px 1px 0 0; transition: height 0.4s ease;
+    background: linear-gradient(to top, #00ff8800, #00ff88); }
 
   /* === TIMELINE === */
-  .timeline {
-    background: rgba(10,10,30,0.6); border: 1px solid rgba(100,200,255,0.1);
-    border-radius: 14px; padding: 16px; margin-bottom: 16px;
-  }
-  .timeline h3 { font-size: 0.85rem; color: #00aaff; margin-bottom: 10px; font-family: 'JetBrains Mono'; }
-  .tl-row { display: flex; align-items: center; padding: 6px 0; }
-  .tl-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; transition: all 0.5s; }
-  .tl-dot.done { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
-  .tl-dot.active { background: #ffaa00; box-shadow: 0 0 12px #ffaa00; animation: pulse 1.5s infinite; }
-  .tl-dot.pending { background: #222; border: 1px solid #333; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
-  .tl-time { width: 80px; font-family: 'JetBrains Mono'; font-size: 0.75rem; color: #556; }
-  .tl-event { flex: 1; font-size: 0.85rem; }
+  .tl { background: rgba(8,8,24,0.6); border: 1px solid rgba(100,200,255,0.08);
+    border-radius: 12px; padding: 12px; margin-bottom: 12px; display: flex; gap: 0; justify-content: space-between; }
+  .tl-item { flex: 1; text-align: center; position: relative; padding: 8px 4px; }
+  .tl-item::after { content:''; position: absolute; top: 18px; right: 0; width: 100%; height: 2px;
+    background: rgba(255,255,255,0.05); }
+  .tl-item:last-child::after { display: none; }
+  .tl-dot { width: 12px; height: 12px; border-radius: 50%; margin: 0 auto 6px; transition: all 0.5s; }
+  .tl-dot.done { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+  .tl-dot.active { background: #ffaa00; box-shadow: 0 0 12px #ffaa00; animation: pls 1.5s infinite; }
+  .tl-dot.pending { background: #1a1a2a; border: 1px solid #333; }
+  @keyframes pls { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+  .tl-time { font-size: 0.7rem; font-family: 'JetBrains Mono'; color: #556; }
+  .tl-ev { font-size: 0.65rem; color: #88aacc; margin-top: 2px; }
 
-  /* === LEADERBOARD LINK === */
-  .lb-link {
-    display: block; text-align: center; padding: 12px; margin-bottom: 16px;
-    background: linear-gradient(135deg, rgba(100,50,200,0.15), rgba(0,100,200,0.15));
-    border: 1px solid rgba(150,100,255,0.2); border-radius: 10px;
-    color: #aa88ff; text-decoration: none; font-weight: 700; font-size: 0.95rem;
-    transition: all 0.3s; font-family: 'JetBrains Mono';
-  }
-  .lb-link:hover { border-color: #aa88ff; transform: translateY(-1px); }
+  /* === LOG === */
+  .log { background: rgba(4,4,12,0.9); border: 1px solid rgba(0,255,136,0.08); border-radius: 10px;
+    padding: 10px; font-family: 'JetBrains Mono'; font-size: 0.65rem; max-height: 120px;
+    overflow-y: auto; line-height: 1.5; margin-bottom: 12px; }
+  .le { color: #4488aa; } .le .m { color: #66cc88; } .le.er .m { color: #ff6666; }
 
-  .footer { text-align: center; padding: 12px; color: #334; font-size: 0.7rem; font-family: 'JetBrains Mono'; }
-  .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #00ff88; margin-right: 4px; animation: pulse 1.5s infinite; }
+  /* === LINK + FOOTER === */
+  .lb { display: block; text-align: center; padding: 10px; margin-bottom: 12px;
+    background: linear-gradient(135deg, rgba(80,40,160,0.12), rgba(0,80,160,0.12));
+    border: 1px solid rgba(120,80,220,0.2); border-radius: 10px;
+    color: #aa88ff; text-decoration: none; font-weight: 700; font-size: 0.85rem;
+    font-family: 'JetBrains Mono'; transition: all 0.3s; }
+  .lb:hover { border-color: #aa88ff; transform: translateY(-1px); }
+  .ft { text-align: center; padding: 8px; color: #223; font-size: 0.65rem; font-family: 'JetBrains Mono'; }
+  .live-d { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: #00ff88; margin-right: 4px; animation: pls 1.5s infinite; }
+  
+  /* SuperVictor character */
+  .sv-char { position: fixed; bottom: 20px; right: 20px; z-index: 10; font-size: 2.5rem;
+    animation: svFloat 3s ease-in-out infinite; filter: drop-shadow(0 0 15px rgba(0,255,136,0.4));
+    cursor: default; user-select: none; }
+  @keyframes svFloat { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-12px) rotate(5deg)} }
+  .sv-char:hover { animation: svPunch 0.4s ease; }
+  @keyframes svPunch { 0%{transform:scale(1)} 50%{transform:scale(1.5) rotate(15deg)} 100%{transform:scale(1)} }
+  .sv-speech { position: fixed; bottom: 70px; right: 10px; z-index: 10; background: rgba(0,30,15,0.9);
+    border: 1px solid #00ff8844; border-radius: 10px; padding: 6px 10px; font-size: 0.7rem;
+    color: #00ff88; max-width: 180px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .sv-char:hover + .sv-speech { opacity: 1; }
 </style>
 </head>
 <body>
-<canvas class="bg-canvas" id="bgCanvas"></canvas>
-<div class="hex-grid"></div>
+<canvas id="bgCanvas"></canvas>
 <div class="scanline"></div>
 
 <div class="container">
   <header>
     <h1>⚡ CROSSOVER TELEMETRY</h1>
-    <div class="subtitle">CHALLENGE 3 // CROSS-SHARD ONLY // BLOCK HEARTBEAT</div>
+    <div class="sub">CHALLENGE 3 // CROSS-SHARD BOMBARDMENT // 3 WORKERS</div>
     <div class="guild">💚 OpenHeart Guild — Powered by SuperVictor 💚</div>
   </header>
 
   <div class="phase-bar">
-    <div class="phase-name" id="phase">⏳ INITIALIZING...</div>
-    <div class="countdown" id="countdown">--:--:--</div>
+    <div class="phase-nm" id="phase">⏳ INITIALIZING...</div>
+    <div class="cd" id="cd">--:--:--</div>
   </div>
 
-  <div class="shard-viz">
-    <div class="shard-node shard-0" id="sn0"><div class="shard-id">S0</div><div id="s0c">0 tx</div></div>
-    <div class="shard-arrow">→→</div>
-    <div class="shard-node shard-1" id="sn1"><div class="shard-id">S1</div><div id="s1c">0 tx</div></div>
-    <div class="shard-arrow">→→</div>
-    <div class="shard-node shard-2" id="sn2"><div class="shard-id">S2</div><div id="s2c">0 tx</div></div>
-    <div class="shard-arrow">→→</div>
-    <div class="shard-node shard-0" style="opacity:0.5;border-style:dashed"><div class="shard-id">S0</div><div>↩</div></div>
+  <!-- SHARD TRIANGLE ARENA -->
+  <div class="shard-arena"><canvas id="shardCanvas"></canvas></div>
+
+  <!-- SPEEDOMETERS -->
+  <div class="gauges">
+    <div class="gauge">
+      <canvas id="gaugeRate" width="160" height="100"></canvas>
+      <div class="g-val" id="gRate">0</div>
+      <div class="g-lbl">TX / Second</div>
+    </div>
+    <div class="gauge">
+      <canvas id="gaugeBudget" width="160" height="100"></canvas>
+      <div class="g-val" id="gBudget">0%</div>
+      <div class="g-lbl">Budget Used</div>
+    </div>
+    <div class="gauge">
+      <canvas id="gaugeMilestone" width="160" height="100"></canvas>
+      <div class="g-val" id="gMile">0%</div>
+      <div class="g-lbl">→ 1M Milestone</div>
+    </div>
   </div>
 
-  <div class="stats-grid">
-    <div class="stat primary"><div class="val" id="txTotal">0</div><div class="lbl">Cross-Shard TX</div></div>
-    <div class="stat"><div class="val" id="txRate">0</div><div class="lbl">TX / Second</div></div>
-    <div class="stat warn"><div class="val" id="costEgld">0.00</div><div class="lbl">EGLD Spent</div></div>
-    <div class="stat"><div class="val" id="glBal">--</div><div class="lbl">GL Balance</div></div>
-    <div class="stat"><div class="val" id="walletCount">500</div><div class="lbl">Wallets</div></div>
-    <div class="stat danger"><div class="val" id="errCount">0</div><div class="lbl">Errors</div></div>
+  <!-- STATS -->
+  <div class="stats">
+    <div class="st primary"><div class="v" id="txTotal">0</div><div class="l">Total Cross-Shard TX</div></div>
+    <div class="st warn"><div class="v" id="costE">0.00</div><div class="l">EGLD Spent</div></div>
+    <div class="st"><div class="v" id="glBal">--</div><div class="l">GL Balance</div></div>
+    <div class="st"><div class="v" id="errC">0</div><div class="l">Errors</div></div>
   </div>
 
+  <!-- CHART -->
   <div class="chart-box">
-    <h3>📈 TX RATE OVER TIME</h3>
-    <div class="chart-container" id="chart"></div>
+    <h3>📈 TX THROUGHPUT</h3>
+    <div class="chart-c" id="chart"></div>
   </div>
 
-  <a class="lb-link" href="https://bon.multiversx.com/guild-wars" target="_blank">
-    📊 OPEN OFFICIAL LEADERBOARD → bon.multiversx.com/guild-wars
-  </a>
-
-  <div class="timeline">
-    <h3>📅 MISSION TIMELINE</h3>
-    <div class="tl-row"><div class="tl-dot" id="d1"></div><div class="tl-time">15:45</div><div class="tl-event">📦 Distribute 2000 EGLD → 500 wallets</div></div>
-    <div class="tl-row"><div class="tl-dot" id="d2"></div><div class="tl-time">16:00</div><div class="tl-event">🔥 Part 1 — FIRE cross-shard!</div></div>
-    <div class="tl-row"><div class="tl-dot" id="d3"></div><div class="tl-time">16:30</div><div class="tl-event">⏸️ Break — Gen Part 2 wallets</div></div>
-    <div class="tl-row"><div class="tl-dot" id="d4"></div><div class="tl-time">16:31</div><div class="tl-event">📦 Distribute 500 EGLD → 500 wallets</div></div>
-    <div class="tl-row"><div class="tl-dot" id="d5"></div><div class="tl-time">17:00</div><div class="tl-event">🔥 Part 2 — FIRE 0.01 EGLD/tx!</div></div>
-    <div class="tl-row"><div class="tl-dot" id="d6"></div><div class="tl-time">17:30</div><div class="tl-event">✅ CHALLENGE COMPLETE</div></div>
+  <!-- TIMELINE -->
+  <div class="tl">
+    <div class="tl-item"><div class="tl-dot" id="t1"></div><div class="tl-time">15:45</div><div class="tl-ev">📦 Fund</div></div>
+    <div class="tl-item"><div class="tl-dot" id="t2"></div><div class="tl-time">16:00</div><div class="tl-ev">🔥 Part 1</div></div>
+    <div class="tl-item"><div class="tl-dot" id="t3"></div><div class="tl-time">16:30</div><div class="tl-ev">⏸️ Break</div></div>
+    <div class="tl-item"><div class="tl-dot" id="t4"></div><div class="tl-time">16:31</div><div class="tl-ev">📦 Fund 2</div></div>
+    <div class="tl-item"><div class="tl-dot" id="t5"></div><div class="tl-time">17:00</div><div class="tl-ev">🔥 Part 2</div></div>
+    <div class="tl-item"><div class="tl-dot" id="t6"></div><div class="tl-time">17:30</div><div class="tl-ev">✅ Done</div></div>
   </div>
 
-  <div class="log-section">
-    <h3>📋 TELEMETRY LOG</h3>
-    <div class="log-box" id="logBox"><div class="log-entry"><span class="ts">[SYS]</span> <span class="msg">Telemetry initialized. Waiting for challenge start...</span></div></div>
-  </div>
+  <a class="lb" href="https://bon.multiversx.com/guild-wars" target="_blank">📊 LIVE LEADERBOARD → bon.multiversx.com/guild-wars</a>
 
-  <div class="footer"><span class="live-dot"></span>AUTO-REFRESH 10s | KEPLER PRIVATE GATEWAY | SHARD FIX APPLIED | OpenHeart © 2026</div>
+  <div class="log" id="logBox"><div class="le"><span class="m">⚡ Telemetry online. Awaiting challenge start...</span></div></div>
+
+  <div class="ft"><span class="live-d"></span>KEPLER PRIVATE GATEWAY | AUTO-REFRESH 10s | OpenHeart © 2026</div>
 </div>
 
-<script>
-// === PARTICLE BACKGROUND ===
-const canvas = document.getElementById('bgCanvas');
-const ctx = canvas.getContext('2d');
-let W, H, particles = [];
-function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize); resize();
+<!-- SuperVictor -->
+<div class="sv-char" id="svChar">💚</div>
+<div class="sv-speech" id="svSpeech">Never give up! Keep pushing! 🔥</div>
 
-class Particle {
-  constructor() { this.reset(); }
-  reset() {
-    this.x = Math.random() * W; this.y = H + 10;
-    this.speed = 0.3 + Math.random() * 1.5;
-    this.size = Math.random() * 2;
-    this.color = ['#00ff88','#00aaff','#aa88ff','#ffaa00'][Math.floor(Math.random()*4)];
-    this.opacity = 0.1 + Math.random() * 0.4;
-    this.drift = (Math.random() - 0.5) * 0.5;
+<script>
+// ===================== BACKGROUND PARTICLES =====================
+const bgC = document.getElementById('bgCanvas'), bgCtx = bgC.getContext('2d');
+let W, H; function rz(){W=bgC.width=innerWidth;H=bgC.height=innerHeight;} addEventListener('resize',rz); rz();
+
+const pts = [];
+class P { constructor(){this.r()} r(){this.x=Math.random()*W;this.y=H+5;this.s=0.2+Math.random()*1.2;
+  this.sz=Math.random()*1.5;this.c=['#00ff88','#00aaff','#bb88ff','#ffaa00'][Math.floor(Math.random()*4)];
+  this.o=0.1+Math.random()*0.3;this.dx=(Math.random()-0.5)*0.3;}
+  u(){this.y-=this.s;this.x+=this.dx;if(this.y<-5)this.r();}
+  d(){bgCtx.globalAlpha=this.o;bgCtx.fillStyle=this.c;bgCtx.beginPath();bgCtx.arc(this.x,this.y,this.sz,0,6.28);bgCtx.fill();}
+}
+for(let i=0;i<60;i++){const p=new P();p.y=Math.random()*H;pts.push(p);}
+function animBg(){bgCtx.clearRect(0,0,W,H);
+  // Connection lines
+  bgCtx.strokeStyle='#00aaff';bgCtx.lineWidth=0.3;
+  for(let i=0;i<pts.length;i++){for(let j=i+1;j<pts.length;j++){
+    const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<80){bgCtx.globalAlpha=0.02*(1-d/80);bgCtx.beginPath();bgCtx.moveTo(pts[i].x,pts[i].y);bgCtx.lineTo(pts[j].x,pts[j].y);bgCtx.stroke();}
+  }}
+  pts.forEach(p=>{p.u();p.d();});requestAnimationFrame(animBg);}
+animBg();
+
+// ===================== SHARD TRIANGLE ARENA =====================
+const sC = document.getElementById('shardCanvas'), sCtx = sC.getContext('2d');
+let sW, sH;
+function rzS(){sW=sC.width=sC.parentElement.clientWidth;sH=sC.height=sC.parentElement.clientHeight;}
+rzS(); addEventListener('resize',rzS);
+
+// Triangle vertices for 3 shards
+function getVerts(){
+  const cx=sW/2, cy=sH/2, r=Math.min(sW,sH)*0.35;
+  return [
+    {x:cx, y:cy-r, label:'SHARD 0', color:'#ff6666', glow:'rgba(255,80,80,'},
+    {x:cx+r*Math.cos(Math.PI/6), y:cy+r*Math.sin(Math.PI/6), label:'SHARD 1', color:'#66ff66', glow:'rgba(80,255,80,'},
+    {x:cx-r*Math.cos(Math.PI/6), y:cy+r*Math.sin(Math.PI/6), label:'SHARD 2', color:'#6688ff', glow:'rgba(80,120,255,'},
+  ];
+}
+
+// TX projectiles
+const projectiles = [];
+let isFiring = false, projRate = 0;
+class Proj {
+  constructor(from, to, color){
+    this.fx=from.x;this.fy=from.y;this.tx=to.x;this.ty=to.y;
+    this.t=0;this.speed=0.01+Math.random()*0.02;this.color=color;
+    this.size=1+Math.random()*2;this.trail=[];
   }
-  update() {
-    this.y -= this.speed; this.x += this.drift;
-    if (this.y < -10) this.reset();
+  update(){
+    this.t+=this.speed;
+    this.x=this.fx+(this.tx-this.fx)*this.t;
+    this.y=this.fy+(this.ty-this.fy)*this.t;
+    // Curve it slightly
+    const mid=0.5, curve=Math.sin(this.t*Math.PI)*20;
+    const nx=-(this.ty-this.fy), ny=this.tx-this.fx;
+    const len=Math.sqrt(nx*nx+ny*ny)||1;
+    this.x+=nx/len*curve;this.y+=ny/len*curve;
+    this.trail.push({x:this.x,y:this.y,o:1});
+    if(this.trail.length>12)this.trail.shift();
+    this.trail.forEach(t=>t.o*=0.85);
+    return this.t>=1;
   }
-  draw() {
-    ctx.globalAlpha = this.opacity;
-    ctx.fillStyle = this.color;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+  draw(ctx){
     // Trail
-    ctx.globalAlpha = this.opacity * 0.3;
-    ctx.beginPath(); ctx.arc(this.x, this.y + 5, this.size * 0.5, 0, Math.PI*2); ctx.fill();
+    this.trail.forEach(t=>{ctx.globalAlpha=t.o*0.4;ctx.fillStyle=this.color;
+      ctx.beginPath();ctx.arc(t.x,t.y,this.size*0.5,0,6.28);ctx.fill();});
+    // Head
+    ctx.globalAlpha=1;ctx.fillStyle=this.color;ctx.shadowColor=this.color;ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,6.28);ctx.fill();ctx.shadowBlur=0;
   }
 }
-for (let i = 0; i < 80; i++) { const p = new Particle(); p.y = Math.random() * H; particles.push(p); }
 
-// Connection lines between nearby particles
-function drawConnections() {
-  ctx.globalAlpha = 0.05; ctx.strokeStyle = '#00aaff'; ctx.lineWidth = 0.5;
-  for (let i = 0; i < particles.length; i++) {
-    for (let j = i+1; j < particles.length; j++) {
-      const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 100) {
-        ctx.globalAlpha = 0.03 * (1 - dist/100);
-        ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
+// Impact flashes
+const impacts = [];
+class Impact {
+  constructor(x,y,color){this.x=x;this.y=y;this.color=color;this.r=2;this.o=1;this.maxR=15+Math.random()*10;}
+  update(){this.r+=1.5;this.o-=0.06;return this.o<=0;}
+  draw(ctx){ctx.globalAlpha=this.o;ctx.strokeStyle=this.color;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,6.28);ctx.stroke();}
+}
+
+// TX counts per shard route
+let shardCounts = [0,0,0];
+
+function spawnProjectiles(count){
+  const v=getVerts();
+  const routes=[[0,1,'#ff8866'],[1,2,'#66ff88'],[2,0,'#6699ff']];
+  for(let i=0;i<count;i++){
+    const [fi,ti,c]=routes[i%3];
+    const jitter={x:(Math.random()-0.5)*20, y:(Math.random()-0.5)*20};
+    projectiles.push(new Proj(
+      {x:v[fi].x+jitter.x,y:v[fi].y+jitter.y},
+      {x:v[ti].x+jitter.x,y:v[ti].y+jitter.y}, c));
+  }
+}
+
+function animShard(){
+  sCtx.clearRect(0,0,sW,sH);
+  const v = getVerts();
+
+  // Draw edges (routes)
+  const routes=[[0,1,'#ff666630'],[1,2,'#66ff6630'],[2,0,'#6688ff30']];
+  routes.forEach(([a,b,c])=>{
+    sCtx.globalAlpha=0.3;sCtx.strokeStyle=c;sCtx.lineWidth=1.5;sCtx.setLineDash([5,5]);
+    sCtx.beginPath();sCtx.moveTo(v[a].x,v[a].y);sCtx.lineTo(v[b].x,v[b].y);sCtx.stroke();
+    sCtx.setLineDash([]);
+  });
+
+  // Route labels
+  const rLabels=['S0→S1','S1→S2','S2→S0'];
+  routes.forEach(([a,b],i)=>{
+    const mx=(v[a].x+v[b].x)/2, my=(v[a].y+v[b].y)/2;
+    sCtx.globalAlpha=0.5;sCtx.fillStyle='#8899aa';sCtx.font='10px JetBrains Mono';sCtx.textAlign='center';
+    sCtx.fillText(rLabels[i], mx, my-8);
+    sCtx.fillText(shardCounts[i].toLocaleString()+' tx', mx, my+4);
+  });
+
+  // Draw shard nodes
+  v.forEach((s,i)=>{
+    // Glow
+    if(isFiring){
+      const grad=sCtx.createRadialGradient(s.x,s.y,5,s.x,s.y,40);
+      grad.addColorStop(0,s.glow+'0.3)');grad.addColorStop(1,s.glow+'0)');
+      sCtx.globalAlpha=0.6+Math.sin(Date.now()/300+i)*0.3;sCtx.fillStyle=grad;
+      sCtx.beginPath();sCtx.arc(s.x,s.y,40,0,6.28);sCtx.fill();
+    }
+    // Node circle
+    sCtx.globalAlpha=1;sCtx.fillStyle='#0a0a1a';sCtx.strokeStyle=s.color;sCtx.lineWidth=2;
+    sCtx.beginPath();sCtx.arc(s.x,s.y,22,0,6.28);sCtx.fill();sCtx.stroke();
+    // Label
+    sCtx.fillStyle=s.color;sCtx.font='bold 11px JetBrains Mono';sCtx.textAlign='center';
+    sCtx.fillText('S'+i,s.x,s.y+4);
+  });
+
+  // Wallet dots orbiting each shard
+  if(isFiring){
+    v.forEach((s,si)=>{
+      for(let w=0;w<8;w++){
+        const angle=Date.now()/1000+w*0.785+si*2;const or=30+Math.sin(w)*5;
+        const wx=s.x+Math.cos(angle)*or, wy=s.y+Math.sin(angle)*or;
+        sCtx.globalAlpha=0.4;sCtx.fillStyle=s.color;
+        sCtx.beginPath();sCtx.arc(wx,wy,1.5,0,6.28);sCtx.fill();
       }
+    });
+  }
+
+  // Update & draw projectiles
+  for(let i=projectiles.length-1;i>=0;i--){
+    const done=projectiles[i].update();
+    projectiles[i].draw(sCtx);
+    if(done){
+      impacts.push(new Impact(projectiles[i].x,projectiles[i].y,projectiles[i].color));
+      projectiles.splice(i,1);
     }
   }
+  // Update & draw impacts
+  for(let i=impacts.length-1;i>=0;i--){
+    const done=impacts[i].update();impacts[i].draw(sCtx);
+    if(done)impacts.splice(i,1);
+  }
+
+  // Spawn new projectiles when firing
+  if(isFiring && Math.random()<0.4){
+    spawnProjectiles(Math.ceil(projRate/100)||1);
+  }
+
+  requestAnimationFrame(animShard);
+}
+animShard();
+
+// ===================== GAUGES =====================
+function drawGauge(canvasId, value, max, color, warn){
+  const c=document.getElementById(canvasId), ctx=c.getContext('2d');
+  const cx=c.width/2, cy=c.height-5, r=65;
+  ctx.clearRect(0,0,c.width,c.height);
+  // Background arc
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.lineWidth=8;ctx.strokeStyle='#1a1a2a';ctx.stroke();
+  // Value arc
+  const pct=Math.min(value/max,1);
+  const endAngle=Math.PI+pct*Math.PI;
+  const grad=ctx.createLinearGradient(cx-r,cy,cx+r,cy);
+  grad.addColorStop(0,color);grad.addColorStop(1,warn||color);
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,endAngle);ctx.lineWidth=8;ctx.strokeStyle=grad;
+  ctx.shadowColor=color;ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+  // Tick marks
+  for(let i=0;i<=10;i++){
+    const a=Math.PI+i/10*Math.PI;
+    const x1=cx+Math.cos(a)*(r-12),y1=cy+Math.sin(a)*(r-12);
+    const x2=cx+Math.cos(a)*(r-6),y2=cy+Math.sin(a)*(r-6);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle='#334';ctx.lineWidth=1;ctx.stroke();
+  }
+  // Needle
+  const na=Math.PI+pct*Math.PI;
+  ctx.beginPath();ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(na)*(r-18),cy+Math.sin(na)*(r-18));
+  ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,4,0,6.28);ctx.fillStyle='#fff';ctx.fill();
 }
 
-function animateBg() {
-  ctx.clearRect(0,0,W,H);
-  particles.forEach(p => { p.update(); p.draw(); });
-  drawConnections();
-  requestAnimationFrame(animateBg);
-}
-animateBg();
+// ===================== DATA =====================
+const GL='erd158rt37truyh2yl5s0fp83nw9u2llmsxhr8g298eugt9x0w03d23qc8n9ng';
+const API='https://api.battleofnodes.com';
+const S={d1:new Date('2026-03-24T15:45:00Z'),d2:new Date('2026-03-24T16:00:00Z'),d3:new Date('2026-03-24T16:30:00Z'),
+  d4:new Date('2026-03-24T16:31:00Z'),d5:new Date('2026-03-24T17:00:00Z'),d6:new Date('2026-03-24T17:30:00Z')};
+let lastTx=0,lastT=Date.now(),chartData=Array(40).fill(0),totalTx=0;
 
-// === DATA ===
-const GL = 'erd158rt37truyh2yl5s0fp83nw9u2llmsxhr8g298eugt9x0w03d23qc8n9ng';
-const API = 'https://api.battleofnodes.com';
-const S = { d1:new Date('2026-03-24T15:45:00Z'), d2:new Date('2026-03-24T16:00:00Z'), d3:new Date('2026-03-24T16:30:00Z'), d4:new Date('2026-03-24T16:31:00Z'), d5:new Date('2026-03-24T17:00:00Z'), d6:new Date('2026-03-24T17:30:00Z') };
-let lastTx=0, lastT=Date.now(), chartData=[];
+// Speech bubble messages
+const speeches=['Never give up! 🔥','Cross-shard mastery!','Bombarding blocks! 💣',
+  'S0→S1→S2→S0! 🔄','Keep pushing! 💪','TX go brrr! ⚡','OpenHeart 💚','1M milestone! 🎯'];
+let speechIdx=0;
+setInterval(()=>{document.getElementById('svSpeech').textContent=speeches[speechIdx++%speeches.length];},8000);
 
-function getPhase() {
+function getPhase(){
   const n=new Date();
-  if(n<S.d1) return {nm:'⏳ STANDBY — Distribution at 15:45 UTC',next:S.d1,c:'#6688aa'};
-  if(n<S.d2) return {nm:'📦 DISTRIBUTING — Funding 500 wallets',next:S.d2,c:'#ffaa00'};
-  if(n<S.d3) return {nm:'🔥 PART 1 ACTIVE — CROSS-SHARD FIRE!',next:S.d3,c:'#00ff88'};
-  if(n<S.d4) return {nm:'⏸️ BREAK — Generating Part 2',next:S.d4,c:'#ffaa00'};
-  if(n<S.d5) return {nm:'📦 PART 2 PREP — Funding wallets',next:S.d5,c:'#ffaa00'};
-  if(n<S.d6) return {nm:'🔥 PART 2 ACTIVE — 0.01 EGLD/TX!',next:S.d6,c:'#ff6600'};
-  return {nm:'✅ MISSION COMPLETE',next:null,c:'#00ff88'};
+  if(n<S.d1)return{nm:'⏳ STANDBY — Distribution at 15:45',next:S.d1,c:'#6688aa',firing:false};
+  if(n<S.d2)return{nm:'📦 DISTRIBUTING — 2000 EGLD → 500 wallets',next:S.d2,c:'#ffaa00',firing:false};
+  if(n<S.d3)return{nm:'🔥 PART 1 — CROSS-SHARD BOMBARDMENT!',next:S.d3,c:'#00ff88',firing:true};
+  if(n<S.d4)return{nm:'⏸️ BREAK — Generating Part 2',next:S.d4,c:'#ffaa00',firing:false};
+  if(n<S.d5)return{nm:'📦 FUNDING Part 2 — 500 EGLD',next:S.d5,c:'#ffaa00',firing:false};
+  if(n<S.d6)return{nm:'🔥 PART 2 — HIGH VALUE BOMBARDMENT!',next:S.d6,c:'#ff6600',firing:true};
+  return{nm:'✅ MISSION COMPLETE!',next:null,c:'#00ff88',firing:false};
 }
 
-function updateUI() {
-  const p=getPhase();
+function tick(){
+  const p=getPhase(); isFiring=p.firing;
   document.getElementById('phase').textContent=p.nm;
   document.getElementById('phase').style.color=p.c;
-  if(p.next){
-    const d=p.next-new Date();
-    if(d>0){const h=Math.floor(d/36e5),m=Math.floor(d%36e5/6e4),s=Math.floor(d%6e4/1e3);
-      document.getElementById('countdown').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    }else document.getElementById('countdown').textContent='00:00:00';
-  }else document.getElementById('countdown').textContent='DONE';
-
-  // Timeline dots
-  const n=new Date(), dots=[['d1',S.d1,S.d2],['d2',S.d2,S.d3],['d3',S.d3,S.d4],['d4',S.d4,S.d5],['d5',S.d5,S.d6],['d6',S.d6,null]];
+  if(p.next){const d=p.next-new Date();if(d>0){const h=Math.floor(d/36e5),m=Math.floor(d%36e5/6e4),s=Math.floor(d%6e4/1e3);
+    document.getElementById('cd').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
+    else document.getElementById('cd').textContent='00:00:00';
+  }else document.getElementById('cd').textContent='DONE!';
+  // Timeline
+  const n=new Date(),dots=[['t1',S.d1,S.d2],['t2',S.d2,S.d3],['t3',S.d3,S.d4],['t4',S.d4,S.d5],['t5',S.d5,S.d6],['t6',S.d6,null]];
   dots.forEach(([id,s,e])=>{const el=document.getElementById(id);
     if(n>=s&&(!e||n<e))el.className='tl-dot active';else if(n>=s)el.className='tl-dot done';else el.className='tl-dot pending';});
-
-  // Shard glow when active
-  const firing = n>=S.d2&&n<S.d3 || n>=S.d5&&n<S.d6;
-  ['sn0','sn1','sn2'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(firing) el.classList.add('active'); else el.classList.remove('active');
-  });
 }
 
-async function fetchData() {
-  try {
-    const [accRes, txRes] = await Promise.all([
-      fetch(`${API}/accounts/${GL}`), fetch(`${API}/accounts/${GL}/transactions/count`)
-    ]);
-    const acc = await accRes.json(), txCount = await txRes.json();
-    const bal = (Number(BigInt(acc.balance||'0'))/1e18).toFixed(2);
-    document.getElementById('glBal').textContent = bal;
-
-    const now = Date.now(), elapsed = (now-lastT)/1000;
-    const rate = elapsed>0 ? Math.round((txCount-lastTx)/elapsed) : 0;
-    if(txCount>lastTx){ lastTx=txCount; lastT=now; }
-
-    document.getElementById('txTotal').textContent = txCount.toLocaleString();
-    document.getElementById('txRate').textContent = rate.toLocaleString();
-    document.getElementById('costEgld').textContent = (txCount*0.00005).toFixed(2);
-
+async function fetchData(){
+  try{
+    const [aR,tR]=await Promise.all([fetch(`${API}/accounts/${GL}`),fetch(`${API}/accounts/${GL}/transactions/count`)]);
+    const acc=await aR.json(),txC=await tR.json();
+    const bal=(Number(BigInt(acc.balance||'0'))/1e18).toFixed(2);
+    document.getElementById('glBal').textContent=bal;
+    totalTx=txC;
+    const now=Date.now(),elp=(now-lastT)/1000;
+    const rate=elp>0?Math.round((txC-lastTx)/elp):0;
+    if(txC>lastTx){lastTx=txC;lastT=now;}
+    projRate=rate;
+    document.getElementById('txTotal').textContent=txC.toLocaleString();
+    document.getElementById('gRate').textContent=rate.toLocaleString();
+    const cost=txC*0.00005; document.getElementById('costE').textContent=cost.toFixed(2);
+    // Gauges
+    drawGauge('gaugeRate',rate,3000,'#00ff88','#ffaa00');
+    const budgetPct=cost/2500*100;
+    document.getElementById('gBudget').textContent=budgetPct.toFixed(1)+'%';
+    drawGauge('gaugeBudget',budgetPct,100,'#ffaa00','#ff6666');
+    const milePct=txC/1000000*100;
+    document.getElementById('gMile').textContent=milePct.toFixed(1)+'%';
+    drawGauge('gaugeMilestone',milePct,100,'#aa88ff','#00ff88');
+    // Shard counts (estimated equal split)
+    shardCounts=[Math.floor(txC/3),Math.floor(txC/3),txC-2*Math.floor(txC/3)];
     // Chart
-    chartData.push(Math.min(rate, 5000));
-    if(chartData.length > 60) chartData.shift();
-    renderChart();
-
-    addLog(`TX: ${txCount.toLocaleString()} | Rate: ${rate}/s | GL: ${bal} EGLD`);
-  } catch(e) { addLog(`API error: ${e.message}`, true); }
+    chartData.push(Math.min(rate,5000));if(chartData.length>60)chartData.shift();
+    const mx=Math.max(1,...chartData);
+    document.getElementById('chart').innerHTML=chartData.map((v,i)=>
+      `<div class="bar" style="height:${Math.max(2,v/mx*100)}%;opacity:${0.3+0.7*i/chartData.length}"></div>`).join('');
+    addLog(`TX: ${txC.toLocaleString()} | ${rate}/s | GL: ${bal} EGLD | Cost: ${cost.toFixed(2)}`);
+  }catch(e){addLog('API: '+e.message,true);}
 }
 
-function renderChart() {
-  const box = document.getElementById('chart');
-  const max = Math.max(1, ...chartData);
-  box.innerHTML = chartData.map((v,i) => 
-    `<div class="chart-bar" style="height:${Math.max(2, v/max*100)}%;opacity:${0.3+0.7*(i/chartData.length)}" title="${v} tx/s"></div>`
-  ).join('');
+function addLog(msg,err=false){
+  const b=document.getElementById('logBox'),d=document.createElement('div');
+  d.className='le'+(err?' er':'');
+  d.innerHTML=`<span class="m">[${new Date().toISOString().slice(11,19)}] ${msg}</span>`;
+  b.appendChild(d);b.scrollTop=b.scrollHeight;while(b.children.length>30)b.removeChild(b.firstChild);
 }
 
-function addLog(msg, isErr=false) {
-  const box = document.getElementById('logBox');
-  const div = document.createElement('div');
-  div.className = 'log-entry' + (isErr?' err':'');
-  const ts = new Date().toISOString().slice(11,19);
-  div.innerHTML = `<span class="ts">[${ts}]</span> <span class="msg">${msg}</span>`;
-  box.appendChild(div); box.scrollTop = box.scrollHeight;
-  while(box.children.length > 40) box.removeChild(box.firstChild);
-}
-
-// Init
-updateUI(); setInterval(updateUI, 1000);
-fetchData(); setInterval(fetchData, 10000);
-
-// Init chart with empty data
-for(let i=0;i<30;i++) chartData.push(0);
-renderChart();
+// INIT
+tick();setInterval(tick,1000);
+fetchData();setInterval(fetchData,10000);
+drawGauge('gaugeRate',0,3000,'#00ff88','#ffaa00');
+drawGauge('gaugeBudget',0,100,'#ffaa00','#ff6666');
+drawGauge('gaugeMilestone',0,100,'#aa88ff','#00ff88');
 </script>
 </body>
 </html>
