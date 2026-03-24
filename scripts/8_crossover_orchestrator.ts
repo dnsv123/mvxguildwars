@@ -477,13 +477,21 @@ async function fireWindow(
 
   const startTime = Date.now();
 
-  // Stats timer
+  // Stats + Checkpoint timer (save progress every cycle!)
+  const logFile = path.join(__dirname, "..", "run.log");
   const statsTimer = setInterval(() => {
     const elapsed = (Date.now() - startTime) / 1000;
     const txps = elapsed > 0 ? Math.round(totalSent / elapsed) : 0;
     const rem = Math.max(0, Math.round((windowEnd - Date.now()) / 1000));
     const totalCost = totalSent * (feePerTx + valuePerTx);
-    log("📊", `${label} | ${totalSent.toLocaleString()} cross-shard tx | ${txps.toLocaleString()} tx/s | Cost: ${totalCost.toFixed(2)} EGLD | Err: ${totalErrors} | ${rem}s left`);
+    const msg = `${label} | ${totalSent.toLocaleString()} cross-shard tx | ${txps.toLocaleString()} tx/s | Cost: ${totalCost.toFixed(2)} EGLD | Err: ${totalErrors} | ${rem}s left`;
+    log("📊", msg);
+    // Checkpoint: save progress to file (crash-safe proof)
+    try {
+      const checkpoint = { label, totalSent, totalErrors, txps, elapsed: elapsed.toFixed(1), costEGLD: totalCost.toFixed(4), timestamp: new Date().toISOString() };
+      fs.writeFileSync(path.join(__dirname, "..", "checkpoint.json"), JSON.stringify(checkpoint, null, 2));
+      fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
+    } catch {}
   }, STATS_INTERVAL_MS);
 
   // 🔥 FIRE ALL 3 SHARD WORKERS
