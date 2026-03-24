@@ -8,7 +8,7 @@ import { UserSecretKey, UserSigner } from "@multiversx/sdk-wallet";
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const GL = "erd158rt37truyh2yl5s0fp83nw9u2llmsxhr8g298eugt9x0w03d23qc8n9ng";
-const GATEWAY = "https://gateway.battleofnodes.com"; // hardcoded, kepler is down
+const GATEWAY = "https://gateway.battleofnodes.com";
 const GAS_LIMIT = BigInt(50_000);
 const GAS_PRICE = BigInt(1_000_000_000);
 const FEE = GAS_LIMIT * GAS_PRICE;
@@ -21,26 +21,20 @@ async function main() {
   );
 
   console.log(`🔄 Recovering from ${wallets.length} wallets → GL`);
-  console.log(`🌐 Gateway: ${GATEWAY}`);
 
-  // First check one wallet to verify
-  try {
-    const testAcc = await provider.getAccount(Address.newFromBech32(wallets[0].address) as any);
-    console.log(`🧪 Test wallet[0] balance: ${Number(BigInt(testAcc.balance.toString())) / 1e18} EGLD`);
-  } catch (e: any) {
-    console.log(`🧪 Test failed: ${e.message}`);
-  }
+  // Test first wallet
+  const testAddr = new Address(wallets[0].address);
+  const testAcc = await provider.getAccount(testAddr);
+  console.log(`🧪 wallet[0] balance: ${Number(BigInt(testAcc.balance.toString()))/1e18} EGLD, nonce: ${testAcc.nonce}`);
 
-  let recovered = 0;
-  let skipped = 0;
-  let totalRecovered = BigInt(0);
-  const BATCH = 25;
+  let recovered = 0, skipped = 0, totalRecovered = BigInt(0);
 
-  for (let i = 0; i < wallets.length; i += BATCH) {
-    const batch = wallets.slice(i, i + BATCH);
+  for (let i = 0; i < wallets.length; i += 25) {
+    const batch = wallets.slice(i, i + 25);
     const promises = batch.map(async (w) => {
       try {
-        const acc = await provider.getAccount(Address.newFromBech32(w.address) as any);
+        const addr = new Address(w.address);
+        const acc = await provider.getAccount(addr);
         const balance = BigInt(acc.balance.toString());
         if (balance <= FEE) { skipped++; return; }
 
@@ -49,8 +43,8 @@ async function main() {
 
         const tx = new Transaction({
           nonce: BigInt(acc.nonce),
-          receiver: Address.newFromBech32(GL),
-          sender: Address.newFromBech32(w.address),
+          receiver: new Address(GL),
+          sender: addr,
           value: sendAmount,
           gasLimit: GAS_LIMIT,
           gasPrice: GAS_PRICE,
@@ -58,21 +52,21 @@ async function main() {
         });
 
         tx.signature = await signer.sign(txComputer.computeBytesForSigning(tx));
-        await provider.sendTransaction(tx as any);
+        await provider.sendTransaction(tx);
         recovered++;
         totalRecovered += sendAmount;
         process.stdout.write(`✅`);
       } catch (e: any) {
-        if (i === 0) console.log(`\n⚠️ Error: ${e.message?.substring(0, 100)}`);
+        if (recovered === 0 && skipped < 3) console.log(`\n⚠️ ${e.message?.substring(0,120)}`);
         process.stdout.write(`❌`);
       }
     });
     await Promise.all(promises);
-    process.stdout.write(` [${Math.min(i + BATCH, wallets.length)}/${wallets.length}] (skip=${skipped})\n`);
+    process.stdout.write(` [${Math.min(i+25,wallets.length)}/${wallets.length}] ok=${recovered} skip=${skipped}\n`);
   }
 
-  console.log(`\n🏦 Recovered: ${recovered} wallets (skipped ${skipped} empty)`);
+  console.log(`\n🏦 Recovered: ${recovered} wallets (${skipped} empty)`);
   console.log(`💰 Total: ${Number(totalRecovered) / 1e18} EGLD`);
 }
 
-main().catch(console.error);
+main().catch(e => console.error("FATAL:", e.message));
