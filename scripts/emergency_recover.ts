@@ -66,18 +66,10 @@ async function main() {
         });
         tx.signature = await signer.sign(txComputer.computeBytesForSigning(tx));
 
-        // Raw JSON for gateway
-        const txJson = {
-          nonce,
-          value: sendAmt.toString(),
-          receiver: GL,
-          sender: w.address,
-          gasPrice: Number(GAS_PRICE),
-          gasLimit: Number(GAS_LIMIT),
-          signature: Buffer.from(tx.signature).toString("hex"),
-          chainID: "B",
-          version: 1,
-        };
+        // Send EXACT signed JSON + signature (guarantees match!)
+        const signedBytes = txComputer.computeBytesForSigning(tx);
+        const txJson = JSON.parse(Buffer.from(signedBytes).toString());
+        txJson.signature = Buffer.from(tx.signature).toString("hex");
 
         await sendTx(txJson);
         recovered++;
