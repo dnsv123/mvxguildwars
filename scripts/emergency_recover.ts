@@ -31,7 +31,7 @@ async function main() {
     const batch = wallets.slice(i, i + BATCH);
     const promises = batch.map(async (w) => {
       try {
-        const acc = await provider.getAccount(Address.newFromBech32(w.address));
+        const acc = await provider.getAccount(Address.newFromBech32(w.address) as any);
         const balance = BigInt(acc.balance.toString());
         if (balance <= FEE) return;
 
