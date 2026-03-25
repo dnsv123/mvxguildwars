@@ -181,10 +181,19 @@ async function stepFund() {
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
   // Split GL balance evenly using BIGINT to avoid rounding to 0
   const reserveEgld = BigInt(5) * BigInt(1e18); // Keep 5 EGLD in GL
-  const distributable = balance > reserveEgld ? balance - reserveEgld : BigInt(0);
+  let distributable = balance > reserveEgld ? balance - reserveEgld : BigInt(0);
+  // Optional budget cap via env var (e.g., FUND_BUDGET=100 → max 100 EGLD)
+  const budgetEnv = process.env.FUND_BUDGET;
+  if (budgetEnv) {
+    const budgetWei = BigInt(Math.floor(parseFloat(budgetEnv) * 1e18));
+    if (budgetWei < distributable) {
+      distributable = budgetWei;
+      log("💡", `Budget capped at ${budgetEnv} EGLD (env FUND_BUDGET)`);
+    }
+  }
   const amountEach = distributable / BigInt(wallets.length);
   const perWalletEgld = Number(amountEach) / 1e18;
-  log("📊", `GL has ${(Number(balance)/1e18).toFixed(2)} EGLD → sending ${perWalletEgld.toFixed(4)} EGLD to each of ${wallets.length} wallets`);
+  log("📊", `GL has ${(Number(balance)/1e18).toFixed(2)} EGLD → sending ${perWalletEgld.toFixed(4)} EGLD to each of ${wallets.length} wallets (total: ${(Number(distributable)/1e18).toFixed(2)} EGLD)`);
 
   if (amountEach < BigInt(50_000_000_000_000)) {
     log("❌", `Amount per wallet too small (${perWalletEgld.toFixed(6)} EGLD). Need more EGLD in GL!`);
