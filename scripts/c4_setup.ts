@@ -226,8 +226,10 @@ async function stepWrap() {
     const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
     const { balance, nonce } = await acctInfo(w.address);
     const egld = Number(balance) / 1e18;
-    // Keep 0.5 EGLD for gas fees, wrap the rest as WEGLD for swaps
-    const toWrap = Math.max(0, egld - 0.5);
+    // Keep 1.5 EGLD for gas fees, wrap the rest as WEGLD for swaps
+    // 1.5 EGLD = ~1500 TXs gas headroom (actual cost ~0.001/TX after refund)
+    const GAS_RESERVE = 1.5;
+    const toWrap = Math.max(0, egld - GAS_RESERVE);
     if (toWrap <= 0.01) {
       log("⚠️", `Shard ${w.shard}: Only ${egld.toFixed(4)} EGLD — not enough to wrap (need >0.51)`);
       continue;

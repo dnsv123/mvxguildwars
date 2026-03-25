@@ -114,7 +114,7 @@ async function main() {
       if (r.ok) {
         const d = await r.json();
         const egld = Number(BigInt(d.balance || "0")) / 1e18;
-        if (egld < 1) { needsFunding = true; break; }
+        if (egld < 3) { needsFunding = true; break; }
       }
     } catch { needsFunding = true; break; }
   }
@@ -122,8 +122,8 @@ async function main() {
   if (needsFunding) {
     log("💸", "Wallets need funding! Running fund...");
     runSetup("fund");
-    log("⏳", "Waiting 20s for funding to confirm...");
-    await sleep(20000);
+    log("⏳", "Waiting 35s for funding to confirm (cross-shard)...");
+    await sleep(35000);
   } else {
     log("✅", "Wallets already funded!");
   }
@@ -140,7 +140,7 @@ async function main() {
         const d: any = await r.json();
         const bal = d?.data?.tokenData?.balance;
         const wegld = bal ? Number(BigInt(bal)) / 1e18 : 0;
-        if (wegld < 0.5) { needsWrapping = true; break; }
+        if (wegld < 1) { needsWrapping = true; break; }
       } else { needsWrapping = true; break; }
     } catch { needsWrapping = true; break; }
   }
@@ -148,8 +148,8 @@ async function main() {
   if (needsWrapping) {
     log("🔄", "Wrapping EGLD → WEGLD...");
     runSetup("wrap");
-    log("⏳", "Waiting 20s for wrapping to confirm...");
-    await sleep(20000);
+    log("⏳", "Waiting 25s for wrapping to confirm...");
+    await sleep(25000);
   } else {
     log("✅", "WEGLD already wrapped!");
   }
