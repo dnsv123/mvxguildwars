@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 Contract Storm — C4 Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e1a; --surface: #12182b; --card: #1a2240; --border: #2a3555;
+      --text: #e4e8f0; --muted: #6b7a9e; --accent: #00d4ff; --green: #00e676;
+      --orange: #ff9100; --red: #ff5252; --purple: #b388ff; --gold: #ffd740;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .bg-glow { position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 800px; background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+    .container { max-width: 1300px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+    .header { text-align: center; padding: 24px 0 16px; }
+    .header h1 { font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, #ff6b35, var(--gold), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: var(--muted); margin-top: 4px; font-size: 0.9rem; }
+
+    .clock-bar { display: flex; justify-content: center; align-items: center; gap: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 28px; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
+    .clock-bar .utc-time { font-size: 2rem; font-weight: 700; color: var(--accent); }
+    .clock-bar .countdown { font-size: 1.2rem; color: var(--gold); }
+    .clock-bar .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; }
+
+    .section-title { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px; display: flex; align-items: center; gap: 8px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* GL Wallet */
+    .gl-card { background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(179,136,255,0.08)); border: 1px solid var(--accent); border-radius: 14px; padding: 18px 24px; margin-bottom: 16px; display: flex; align-items: center; gap: 20px; }
+    .gl-card .gl-icon { font-size: 2rem; }
+    .gl-card .gl-info { flex: 1; }
+    .gl-card .gl-label { font-size: 0.7rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+    .gl-card .gl-addr { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .gl-card .gl-bal { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+
+    /* Shard Grid */
+    .shard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+    .shard-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; position: relative; overflow: hidden; }
+    .shard-card.same-shard { border-color: var(--green); box-shadow: 0 0 20px rgba(0,230,118,0.1); }
+    .shard-card .shard-badge { position: absolute; top: 12px; right: 12px; padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .shard-card .shard-badge.cross { background: rgba(255,145,0,0.15); color: var(--orange); }
+    .shard-card .shard-badge.same { background: rgba(0,230,118,0.15); color: var(--green); }
+    .shard-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .shard-header .shard-num { font-size: 1.4rem; font-weight: 900; color: var(--accent); }
+    .shard-header .shard-type { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+
+    .wallet-row, .contract-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(42,53,85,0.5); }
+    .wallet-row:last-child, .contract-row:last-child { border-bottom: none; }
+    .row-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .row-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
+    .row-addr { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); cursor: pointer; }
+    .row-addr:hover { color: var(--accent); }
+    .val-green { color: var(--green); } .val-accent { color: var(--accent); }
+    .val-orange { color: var(--orange); } .val-gold { color: var(--gold); } .val-red { color: var(--red); }
+
+    /* Call Types */
+    .call-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .call-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .call-card.active-call { border-color: var(--green); }
+    .call-name { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
+    .call-desc { font-size: 0.65rem; color: var(--muted); margin-bottom: 8px; }
+    .call-stat { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 900; }
+    .call-sub { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+    /* Stats Bar */
+    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+    .mini-stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .mini-stat .ms-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .mini-stat .ms-val { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 900; }
+
+    /* Links */
+    .links-bar { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .link-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 16px; color: var(--text); text-decoration: none; font-size: 0.8rem; font-weight: 600; transition: all 0.3s; }
+    .link-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+    /* Log */
+    .log-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .log-section h3 { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .log-entries { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; max-height: 180px; overflow-y: auto; line-height: 1.6; }
+    .log-entries::-webkit-scrollbar { width: 4px; } .log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .log-entry { color: var(--muted); } .log-entry.success { color: var(--green); } .log-entry.info { color: var(--accent); } .log-entry.warn { color: var(--orange); }
+
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-orange { background: var(--orange); }
+    .dot-red { background: var(--red); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .pulsing { animation: pulse 1.5s infinite; }
+
+    @media (max-width: 900px) { .shard-grid { grid-template-columns: 1fr; } .call-grid { grid-template-columns: repeat(2, 1fr); } .stats-bar { grid-template-columns: repeat(3, 1fr); } }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="container">
+    <div class="header">
+      <h1>🔥 Contract Storm — Challenge 4</h1>
+      <p>Battle of Nodes — Guild Wars · March 26, 2026 · 16:00–17:00 UTC</p>
+    </div>
+
+    <div class="clock-bar">
+      <div><div class="label">UTC Now</div><div class="utc-time" id="utcClock">--:--:--</div></div>
+      <div><div class="label">Window</div><div class="countdown" id="windowCD">--:--:--</div></div>
+      <div><div class="label">Status</div><div class="countdown" id="windowStatus" style="color:var(--muted)">PRE-CHALLENGE</div></div>
+    </div>
+
+    <!-- GL Wallet -->
+    <div class="section-title">👑 Guild Leader Wallet (Funding Only)</div>
+    <div class="gl-card">
+      <div class="gl-icon">👑</div>
+      <div class="gl-info">
+        <div class="gl-label">Guild Leader</div>
+        <div class="gl-addr" id="glAddr">Loading...</div>
+      </div>
+      <div>
+        <div class="gl-bal" id="glBal">--</div>
+        <div style="font-size:0.7rem;color:var(--muted);text-align:right">EGLD remaining</div>
+      </div>
+    </div>
+
+    <!-- Shard Wallets + Contracts -->
+    <div class="section-title">🏗️ Shard Wallets & Forwarder Contracts</div>
+    <div class="shard-grid" id="shardGrid"></div>
+
+    <!-- Call Types -->
+    <div class="section-title">📡 Call Types Performance</div>
+    <div class="call-grid">
+      <div class="call-card active-call" id="callSync">
+        <div class="call-name">⚡ blindSync</div>
+        <div class="call-desc">Same-Shard Only · No Drain</div>
+        <div class="call-stat val-green" id="syncCount">0</div>
+        <div class="call-sub">successful calls</div>
+      </div>
+      <div class="call-card" id="callV1">
+        <div class="call-name">🔄 blindAsyncV1</div>
+        <div class="call-desc">Cross-Shard · Drain Cross</div>
+        <div class="call-stat val-accent" id="v1Count">0</div>
+        <div class="call-sub">successful calls</div>
+      </div>
+      <div class="call-card" id="callV2">
+        <div class="call-name">🔗 blindAsyncV2</div>
+        <div class="call-desc">Promises · Drain Cross</div>
+        <div class="call-stat val-purple" id="v2Count">0</div>
+        <div class="call-sub">successful calls</div>
+      </div>
+      <div class="call-card" id="callTE">
+        <div class="call-name">📤 blindTransfExec</div>
+        <div class="call-desc">No Callback · Drain Always</div>
+        <div class="call-stat val-orange" id="teCount">0</div>
+        <div class="call-sub">successful calls</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section-title">📊 Live Stats</div>
+    <div class="stats-bar">
+      <div class="mini-stat"><div class="ms-label">Total Calls</div><div class="ms-val val-accent" id="totalCalls">0</div></div>
+      <div class="mini-stat"><div class="ms-label">Calls/Min</div><div class="ms-val val-green" id="callsPerMin">0</div></div>
+      <div class="mini-stat"><div class="ms-label">WEGLD Spent</div><div class="ms-val val-orange" id="wegldSpent">0</div></div>
+      <div class="mini-stat"><div class="ms-label">USDC Earned</div><div class="ms-val val-gold" id="usdcEarned">0</div></div>
+      <div class="mini-stat"><div class="ms-label">Gas Used</div><div class="ms-val val-red" id="gasUsed">0</div></div>
+    </div>
+
+    <!-- Links -->
+    <div class="links-bar">
+      <a class="link-btn" href="https://bon.multiversx.com/guild-wars" target="_blank">🏆 Live Scores</a>
+      <a class="link-btn" href="https://bon-explorer.multiversx.com" target="_blank">🔍 Explorer</a>
+      <a class="link-btn" href="https://api.battleofnodes.com/docs" target="_blank">📄 API Docs</a>
+    </div>
+
+    <!-- Log -->
+    <div class="log-section">
+      <h3>📋 Activity Log</h3>
+      <div class="log-entries" id="logEntries">
+        <div class="log-entry info">Dashboard loaded. Polling wallet data...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://api.battleofnodes.com';
+    const WINDOW_START = '2026-03-26T16:00:00Z';
+    const WINDOW_END = '2026-03-26T17:00:00Z';
+
+    // CONFIG — loaded from hardcoded values matching the droplet
+    const GL_ADDR = 'erd1a5kxga87qlhcax5g9vv8yrj7jszg5r39rl5ez0m3ta8f77s4hcrsh3vgjc';
+    const WALLETS = [
+      { shard: 0, address: 'erd1m6cyl2zql2gvhhjw4r99dktc2j23pl4rlvq5r8938dwz2swp50wqvg075l', callType: 'blindAsyncV1' },
+      { shard: 1, address: 'erd1ypr6sdu2q6sxzlrtdtsxyw3lk4mrznkzfmt4w29ht3l4c0vs8t3srm97lf', callType: 'blindSync' },
+      { shard: 2, address: 'erd1a5348kn5j37nn9ea697cnws098q3qv0g8dlq6kkfmc5l6h9ur0eqs2uqfg', callType: 'blindAsyncV1' },
+    ];
+    const FORWARDERS = [
+      { shard: 0, address: 'erd1qqqqqqqqqqqqqpgqxdh3zsjktd3qpa9jnn72me83j77v6k7t50wqrtn6zl' },
+      { shard: 1, address: 'erd1qqqqqqqqqqqqqpgqejv0jxdpuyw4fl0ps73k98pd6h8w4d868t3st9tn3q' },
+      { shard: 2, address: 'erd1qqqqqqqqqqqqqpgqpskjkdvyceattq5vkgq6yy73khud43xur0eqhd2ha6' },
+    ];
+
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('utcClock').textContent = now.toISOString().slice(11, 19);
+      const startMs = new Date(WINDOW_START).getTime();
+      const endMs = new Date(WINDOW_END).getTime();
+      const cd = document.getElementById('windowCD');
+      const st = document.getElementById('windowStatus');
+      if (now.getTime() < startMs) {
+        cd.textContent = fmtMs(startMs - now.getTime());
+        st.textContent = 'PRE-CHALLENGE';
+        st.style.color = 'var(--muted)';
+      } else if (now.getTime() < endMs) {
+        cd.textContent = fmtMs(endMs - now.getTime());
+        cd.style.color = 'var(--green)';
+        st.textContent = '🔥 LIVE';
+        st.style.color = 'var(--green)';
+        st.classList.add('pulsing');
+      } else {
+        cd.textContent = '00:00:00';
+        st.textContent = 'FINISHED';
+        st.style.color = 'var(--orange)';
+      }
+    }
+    function fmtMs(ms) {
+      const s = Math.floor(ms/1000); const h = Math.floor(s/3600); const m = Math.floor((s%3600)/60);
+      return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+    }
+
+    // Build shard cards
+    function buildShardCards() {
+      const grid = document.getElementById('shardGrid');
+      WALLETS.forEach((w, i) => {
+        const isSame = w.shard === 1;
+        grid.innerHTML += `
+          <div class="shard-card ${isSame ? 'same-shard' : ''}">
+            <span class="shard-badge ${isSame ? 'same' : 'cross'}">${isSame ? '⚡ SAME-SHARD' : '🔀 CROSS-SHARD'}</span>
+            <div class="shard-header">
+              <span class="shard-num">S${w.shard}</span>
+              <span class="shard-type">${w.callType}</span>
+            </div>
+            <div class="wallet-row"><span class="row-label">Wallet</span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${w.address}')" title="${w.address}">${w.address.slice(0,16)}...${w.address.slice(-6)}</span></div>
+            <div class="wallet-row"><span class="row-label">EGLD</span><span class="row-value val-accent" id="s${w.shard}Egld">--</span></div>
+            <div class="wallet-row"><span class="row-label">WEGLD</span><span class="row-value val-green" id="s${w.shard}Wegld">--</span></div>
+            <div class="wallet-row"><span class="row-label">USDC</span><span class="row-value val-gold" id="s${w.shard}Usdc">--</span></div>
+            <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+              <div class="contract-row"><span class="row-label">📦 Forwarder</span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${FORWARDERS[i].address}')" title="${FORWARDERS[i].address}">${FORWARDERS[i].address.slice(0,16)}...${FORWARDERS[i].address.slice(-6)}</span></div>
+              <div class="contract-row"><span class="row-label">FWD WEGLD</span><span class="row-value val-orange" id="f${w.shard}Wegld">0</span></div>
+              <div class="contract-row"><span class="row-label">FWD USDC</span><span class="row-value val-gold" id="f${w.shard}Usdc">0</span></div>
+            </div>
+          </div>`;
+      });
+    }
+
+    // Polling
+    async function fetchBal(addr) {
+      try { const d = await (await fetch(`${API}/accounts/${addr}`)).json(); return { egld: Number(BigInt(d.balance)) / 1e18, nonce: d.nonce }; }
+      catch { return { egld: 0, nonce: 0 }; }
+    }
+    async function fetchToken(addr, tok) {
+      try { const d = await (await fetch(`${API}/accounts/${addr}/tokens/${tok}`)).json(); return Number(BigInt(d.balance || '0')); }
+      catch { return 0; }
+    }
+
+    async function pollAll() {
+      // GL
+      const gl = await fetchBal(GL_ADDR);
+      document.getElementById('glBal').textContent = gl.egld.toFixed(4);
+      document.getElementById('glAddr').textContent = GL_ADDR;
+
+      let totalWegld = 0, totalUsdc = 0;
+      // Shard wallets
+      for (const w of WALLETS) {
+        const b = await fetchBal(w.address);
+        const wegld = await fetchToken(w.address, 'WEGLD-bd4d79');
+        const usdc = await fetchToken(w.address, 'USDC-c76f1f');
+        document.getElementById(`s${w.shard}Egld`).textContent = b.egld.toFixed(4);
+        document.getElementById(`s${w.shard}Wegld`).textContent = (wegld / 1e18).toFixed(4);
+        document.getElementById(`s${w.shard}Usdc`).textContent = (usdc / 1e6).toFixed(2);
+        totalWegld += wegld / 1e18;
+        totalUsdc += usdc / 1e6;
+      }
+      // Forwarders
+      for (const f of FORWARDERS) {
+        const fwWegld = await fetchToken(f.address, 'WEGLD-bd4d79');
+        const fwUsdc = await fetchToken(f.address, 'USDC-c76f1f');
+        document.getElementById(`f${f.shard}Wegld`).textContent = (fwWegld / 1e18).toFixed(4);
+        document.getElementById(`f${f.shard}Usdc`).textContent = (fwUsdc / 1e6).toFixed(2);
+      }
+
+      // Stats
+      document.getElementById('wegldSpent').textContent = (42 - totalWegld).toFixed(2);
+      document.getElementById('usdcEarned').textContent = totalUsdc.toFixed(0);
+
+      // TX counts per wallet
+      let totalTx = 0;
+      for (const w of WALLETS) {
+        try {
+          const c = await (await fetch(`${API}/accounts/${w.address}/transactions/count`)).json();
+          totalTx += (typeof c === 'number') ? c : 0;
+        } catch {}
+      }
+      document.getElementById('totalCalls').textContent = totalTx.toLocaleString();
+
+      addLog('info', `Polled: ${totalTx} total calls | ${totalWegld.toFixed(2)} WEGLD | ${totalUsdc.toFixed(0)} USDC`);
+    }
+
+    function addLog(type, msg) {
+      const el = document.getElementById('logEntries');
+      const now = new Date().toISOString().slice(11, 19);
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.textContent = `[${now}] ${msg}`;
+      el.prepend(div);
+      if (el.children.length > 50) el.removeChild(el.lastChild);
+    }
+
+    // Init
+    buildShardCards();
+    setInterval(updateClock, 200);
+    updateClock();
+    pollAll();
+    setInterval(pollAll, 15000);
+  </script>
+</body>
+</html>
