@@ -672,7 +672,9 @@ async function main() {
   // CRITICAL: blindSync only works SAME-SHARD (Shard 1)
   // Shard 0/2 = cross-shard → only 3 async types
   const SHARD1_TYPES = ["blindSync", "blindAsyncV1", "blindAsyncV2", "blindTransfExec"];
-  const CROSS_SHARD_TYPES = ["blindAsyncV1", "blindAsyncV2", "blindTransfExec"];
+  // S0/S2 forwarders NOT payable → blindTransfExec fails (USDC can't return)
+  // Only blindAsyncV1 + blindAsyncV2 work cross-shard
+  const CROSS_SHARD_TYPES = ["blindAsyncV1", "blindAsyncV2"];
 
   const workerConfigs: WalletWorkerConfig[] = [];
   let widx = 0;
@@ -698,7 +700,7 @@ async function main() {
 
   log("🚀", `Fleet: ${workerConfigs.length} workers`);
   for (const s of [0,1,2]) {
-    const types = s === 1 ? '4 types (incl. blindSync)' : '3 async types';
+    const types = s === 1 ? '4 types (incl. blindSync + blindTransfExec)' : '2 async types (V1+V2 only, no TransfExec)';
     log("📡", `  S${s}: ${shardCounts[s]} workers → ${fwdByShard[s]?.substring(0,20)}... [${types}]`);
   }
 
