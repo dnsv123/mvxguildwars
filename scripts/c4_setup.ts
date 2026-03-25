@@ -179,21 +179,27 @@ async function stepFund() {
   log("💰", `GL: ${(Number(balance) / 1e18).toFixed(4)} EGLD, nonce=${nonce}`);
 
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
-  // Split GL balance evenly, keeping 5 EGLD reserve in GL
-  const glEgld = Number(balance) / 1e18;
-  const perWallet = Math.floor((glEgld - 5) / wallets.length);
-  const amountEach = BigInt(Math.floor(perWallet * 1e18));
-  log("📊", `GL has ${glEgld.toFixed(2)} EGLD → sending ${perWallet} EGLD to each of ${wallets.length} wallets`);
+  // Split GL balance evenly using BIGINT to avoid rounding to 0
+  const reserveEgld = BigInt(5) * BigInt(1e18); // Keep 5 EGLD in GL
+  const distributable = balance > reserveEgld ? balance - reserveEgld : BigInt(0);
+  const amountEach = distributable / BigInt(wallets.length);
+  const perWalletEgld = Number(amountEach) / 1e18;
+  log("📊", `GL has ${(Number(balance)/1e18).toFixed(2)} EGLD → sending ${perWalletEgld.toFixed(4)} EGLD to each of ${wallets.length} wallets`);
+
+  if (amountEach < BigInt(50_000_000_000_000)) {
+    log("❌", `Amount per wallet too small (${perWalletEgld.toFixed(6)} EGLD). Need more EGLD in GL!`);
+    return;
+  }
 
   for (let i = 0; i < wallets.length; i++) {
     const w = wallets[i];
-    log("📤", `Funding Shard ${w.shard}: ${w.address} with ${perWallet} EGLD...`);
+    log("📤", `Funding Shard ${w.shard}: ${w.address} with ${perWalletEgld.toFixed(4)} EGLD...`);
     const hash = await signAndSend(glSigner, glAddr, w.address, nonce + i, amountEach, BigInt(50_000), "");
     log("✅", `TX: ${hash}`);
   }
 
-  log("⏳", "Waiting 15s for confirmations...");
-  await sleep(15000);
+  log("⏳", "Waiting 30s for cross-shard confirmations...");
+  await sleep(30000);
 
   for (const w of wallets) {
     const { balance } = await acctInfo(w.address);
@@ -211,17 +217,17 @@ async function stepWrap() {
     const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
     const { balance, nonce } = await acctInfo(w.address);
     const egld = Number(balance) / 1e18;
-    // Keep 3 EGLD for gas, wrap the rest
-    const toWrap = Math.max(0, egld - 3);
-    if (toWrap <= 0) {
-      log("⚠️", `Shard ${w.shard}: Only ${egld.toFixed(4)} EGLD — not enough to wrap (need >3)`);
+    // Keep 0.5 EGLD for gas fees, wrap the rest as WEGLD for swaps
+    const toWrap = Math.max(0, egld - 0.5);
+    if (toWrap <= 0.01) {
+      log("⚠️", `Shard ${w.shard}: Only ${egld.toFixed(4)} EGLD — not enough to wrap (need >0.51)`);
       continue;
     }
     const wrapAmount = BigInt(Math.floor(toWrap * 1e18));
-    log("🔄", `Wrapping ${toWrap.toFixed(2)} EGLD on Shard ${w.shard} (keeping 3 EGLD for gas)...`);
+    log("🔄", `Wrapping ${toWrap.toFixed(4)} EGLD on Shard ${w.shard} (keeping 0.5 EGLD for gas)...`);
     const hash = await signAndSend(signer, w.address, WRAP_SC, nonce, wrapAmount, BigInt(5_000_000), "wrapEgld");
     log("✅", `Wrap TX: ${hash}`);
-    await sleep(2000);
+    await sleep(500);  // Faster pacing
   }
 
   log("⏳", "Waiting 15s for confirmations...");
