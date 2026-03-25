@@ -234,7 +234,7 @@ async function stepTestCall() {
   }
 
   const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
-  const swapDest = "erd1qqqqqqqqqqqqqpgqeel2kumf0r8ffyhth7pqdujjat9nx0862jpsg2pqa";
+  const swapDest = "erd1qqqqqqqqqqqqqpgqeel2kumf0r8ffyhth7pqdujjat9nx0862jpsg2pqaq";
   const swapEndpoint = "swapTokensFixedInput";
   const swapAmount = BigInt(1_000_000_000_000_000); // 0.001 WEGLD
 

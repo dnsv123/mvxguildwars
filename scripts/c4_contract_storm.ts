@@ -26,7 +26,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 //  KEY ADDRESSES & TOKENS (from pre-brief)
 // ═══════════════════════════════════════════════════════════════
 const DEX_PAIR       = "erd1qqqqqqqqqqqqqpgqr8n2kjqhrupcrsceevkv6yydtjsgacvuqqqs23m8n6";
-const SWAP_DEST      = "erd1qqqqqqqqqqqqqpgqeel2kumf0r8ffyhth7pqdujjat9nx0862jpsg2pqa";
+const SWAP_DEST      = "erd1qqqqqqqqqqqqqpgqeel2kumf0r8ffyhth7pqdujjat9nx0862jpsg2pqaq";
 const WEGLD_TOKEN    = "WEGLD-bd4d79";
 const USDC_TOKEN     = "USDC-c76f1f";
 const SWAP_ENDPOINT  = "swapTokensFixedInput";
