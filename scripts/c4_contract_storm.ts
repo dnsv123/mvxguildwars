@@ -55,10 +55,12 @@ let FORWARDERS: ForwarderConfig[] = [];
 // ═══════════════════════════════════════════════════════════════
 //  TX CONFIG
 // ═══════════════════════════════════════════════════════════════
-const GAS_LIMIT_SC    = BigInt(30_000_000); // 30M for SC calls
+const GAS_LIMIT_SC    = BigInt(15_000_000); // 15M for SC calls (reduced from 30M for gas efficiency)
 const GAS_PRICE_BASE  = BigInt(1_000_000_000);
 const SWAP_AMOUNT     = BigInt(1_000_000_000_000_000); // 0.001 WEGLD per swap
 const MIN_OUT_AMOUNT  = BigInt(1); // minimum 1 USDC unit
+const MIN_EGLD_FOR_GAS = BigInt(15_000_000) * BigInt(1_000_000_000); // 0.015 EGLD min per tx
+const MIN_WEGLD_FOR_SWAP = SWAP_AMOUNT; // need at least 1 swap worth
 
 // Multi-endpoint failover
 const ENDPOINTS = [
@@ -232,22 +234,8 @@ async function signAndSerializeSC(
   return txJson;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  GAS TAPERING
-// ═══════════════════════════════════════════════════════════════
-const GAS_TAPER = [
-  { minFrom: 0,  minTo: 5,  multiplier: BigInt(2) },
-  { minFrom: 5,  minTo: 20, multiplier: BigInt(1) },
-  { minFrom: 20, minTo: 99, multiplier: BigInt(1) },
-];
-
-function getGasPrice(windowStartMs: number): bigint {
-  const elapsedMin = (Date.now() - windowStartMs) / 60000;
-  for (const tier of GAS_TAPER) {
-    if (elapsedMin >= tier.minFrom && elapsedMin < tier.minTo) {
-      return GAS_PRICE_BASE * tier.multiplier;
-    }
-  }
+// Gas price is fixed at 1x — no tapering to conserve EGLD
+function getGasPrice(): bigint {
   return GAS_PRICE_BASE;
 }
 
@@ -262,27 +250,63 @@ async function forwarderWorker(
   const { wallet, forwarderAddress, callType, shard } = config;
   const signer = new UserSigner(UserSecretKey.fromString(wallet.privateKey));
   
-  let { nonce } = await getAccountInfo(wallet.address);
+  let { nonce, balance: egldBal } = await getAccountInfo(wallet.address);
+  let wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
   let sent = 0;
   let errors = 0;
-  const BATCH_SIZE = 10; // SC calls are heavier, smaller batches
+  let batchCount = 0;
+  const BATCH_SIZE = 5; // Smaller batches = less speculative nonce risk
+  const NONCE_RESYNC_INTERVAL = 30; // Re-sync nonce every 30 batches
 
   log("🔥", `Shard ${shard} worker: ${callType} → ${forwarderAddress.substring(0,20)}...`);
+  log("💰", `  EGLD: ${(Number(egldBal) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegldBal) / 1e18).toFixed(4)}`);
 
   while (Date.now() < windowEndMs) {
-    const gasPrice = getGasPrice(windowStartMs);
+    // Safety: check balances
+    const gasNeeded = MIN_EGLD_FOR_GAS * BigInt(BATCH_SIZE);
+    const wegldNeeded = SWAP_AMOUNT * BigInt(BATCH_SIZE);
+
+    if (egldBal < gasNeeded) {
+      log("⚠️", `S${shard}: Low EGLD (${(Number(egldBal)/1e18).toFixed(4)}). Re-syncing...`);
+      const fresh = await getAccountInfo(wallet.address);
+      egldBal = fresh.balance;
+      nonce = fresh.nonce;
+      if (egldBal < MIN_EGLD_FOR_GAS) {
+        log("🛑", `S${shard}: Out of EGLD for gas! Stopping.`);
+        break;
+      }
+    }
+
+    if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+      log("⚠️", `S${shard}: Low WEGLD (${(Number(wegldBal)/1e18).toFixed(4)}). Re-syncing...`);
+      wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+      if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+        log("🛑", `S${shard}: Out of WEGLD! Stopping.`);
+        break;
+      }
+    }
+
+    // Periodic nonce re-sync to avoid drift
+    if (batchCount > 0 && batchCount % NONCE_RESYNC_INTERVAL === 0) {
+      const fresh = await getAccountInfo(wallet.address);
+      nonce = fresh.nonce;
+      egldBal = fresh.balance;
+      wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+      log("🔄", `S${shard}: Nonce re-sync → ${nonce} | EGLD: ${(Number(egldBal)/1e18).toFixed(4)}`);
+    }
+
+    const gasPrice = getGasPrice();
     const batch: any[] = [];
 
     for (let i = 0; i < BATCH_SIZE; i++) {
       try {
-        // For ESDTTransfer: receiver is the forwarder, value is 0 EGLD
         const data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
         const txJson = await signAndSerializeSC(
           signer,
           wallet.address,
-          forwarderAddress,  // send to OUR forwarder contract
+          forwarderAddress,
           nonce,
-          BigInt(0),         // 0 EGLD (we send WEGLD via ESDTTransfer)
+          BigInt(0),
           GAS_LIMIT_SC,
           gasPrice,
           data,
@@ -300,14 +324,21 @@ async function forwarderWorker(
       const ok = await sendTxBatchRaw(batch);
       sent += ok;
       totalSent += ok;
+      // Estimate balance reduction
+      egldBal -= GAS_LIMIT_SC * gasPrice * BigInt(ok);
+      wegldBal -= SWAP_AMOUNT * BigInt(ok);
     } catch {
       errors++;
       totalErrors++;
       failoverEndpoint();
+      // Re-sync after failure
+      const fresh = await getAccountInfo(wallet.address);
+      nonce = fresh.nonce;
+      egldBal = fresh.balance;
     }
 
-    // Small delay to avoid overwhelming
-    await sleep(200);
+    batchCount++;
+    await sleep(300); // Slightly longer delay for reliability
   }
 
   return { sent, errors };
@@ -437,11 +468,20 @@ async function main() {
   FORWARDERS = JSON.parse(fs.readFileSync(configPath, "utf-8"));
   log("📋", `Loaded ${FORWARDERS.length} forwarder configs`);
 
+  // Show which endpoints we're using
+  log("🌐", `Endpoints: ${ENDPOINTS.join(' → ')}`);
+  log("🌐", `API: ${API_URL}`);
+
   for (const f of FORWARDERS) {
     log("📡", `Shard ${f.shard}: ${f.callType} → ${f.forwarderAddress.substring(0,30)}...`);
     const { balance } = await getAccountInfo(f.wallet.address);
     const wegld = await getTokenBalance(f.wallet.address, WEGLD_TOKEN);
-    log("💰", `  EGLD: ${(Number(balance) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegld) / 1e18).toFixed(4)}`);
+    const egldNum = Number(balance) / 1e18;
+    const wegldNum = Number(wegld) / 1e18;
+    const maxTxs = Math.floor(egldNum / 0.015);
+    log("💰", `  EGLD: ${egldNum.toFixed(4)} (~${maxTxs} txs of gas) | WEGLD: ${wegldNum.toFixed(4)} (~${Math.floor(wegldNum/0.001)} swaps)`);
+    if (egldNum < 0.1) log("⚠️", `  WARNING: Very low EGLD on S${f.shard}!`);
+    if (wegldNum < 0.01) log("⚠️", `  WARNING: Very low WEGLD on S${f.shard}!`);
   }
 
   // ═══════════════════════════════════════
@@ -461,8 +501,8 @@ async function main() {
     const elapsed = (Date.now() - windowStartMs) / 1000;
     const txps = elapsed > 0 ? Math.round(totalSent / elapsed) : 0;
     const rem = Math.max(0, Math.round((windowEndMs - Date.now()) / 1000));
-    const gasX = Number(getGasPrice(windowStartMs) / GAS_PRICE_BASE);
-    log("📊", `${totalSent} tx | ${txps} tx/s | Gas: ${gasX}x | Err: ${totalErrors} | ${rem}s left`);
+    const gasX = '1x';
+    log("📊", `${totalSent} tx | ${txps} tx/s | Gas: ${gasX} | Err: ${totalErrors} | ${rem}s left`);
     try {
       const cp = { totalSent, totalErrors, txps, gasX, elapsed, timestamp: new Date().toISOString() };
       fs.writeFileSync(path.join(__dirname, "..", "checkpoint.json"), JSON.stringify(cp, null, 2));

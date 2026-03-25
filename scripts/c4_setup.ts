@@ -66,8 +66,11 @@ async function acctInfo(addr: string) {
 }
 
 async function tokenBal(addr: string, tok: string) {
-  try { return BigInt((await apiGet(`${API_URL}/accounts/${addr}/tokens/${tok}`)).balance || "0"); }
-  catch { return BigInt(0); }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return BigInt((await apiGet(`${API_URL}/accounts/${addr}/tokens/${tok}`)).balance || "0"); }
+    catch { await sleep(500); }
+  }
+  return BigInt(0);
 }
 
 async function signAndSend(

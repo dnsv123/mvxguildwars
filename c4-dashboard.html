@@ -392,8 +392,21 @@
       for (const s of OBS_SHARDS) {
         try {
           const r = await fetch(`http://${OBS_HOST}:${OBS_PORT}/network/status/${s.id}`, {signal: AbortSignal.timeout(3000)});
-          if (!r.ok) throw new Error('not ok');
           const d = await r.json();
+          // Check for proxy error responses (e.g. "node is starting")
+          if (d?.error) {
+            const card = document.getElementById(s.el);
+            const label = document.getElementById(s.st);
+            if (d.error.includes('starting')) {
+              card.className = 'obs-card syncing';
+              card.querySelector('.obs-dot').className = 'obs-dot blue';
+              label.innerHTML = '🔄 Node starting...<br>Trie sync in progress';
+            } else {
+              card.querySelector('.obs-dot').className = 'obs-dot red';
+              label.innerHTML = `⚠️ ${d.error.substring(0,30)}`;
+            }
+            continue;
+          }
           const st = d?.data?.status;
           const synced = st?.erd_synchronized || false;
           const nonce = st?.erd_nonce || 0;
