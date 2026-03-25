@@ -533,6 +533,7 @@
       document.getElementById('glAddr').textContent = GL_ADDR;
 
       let totalWegld = 0, totalUsdc = 0;
+      // Sample first wallet per shard for display (not all 60)
       for (const w of WALLETS) {
         const b = await fetchBal(w.address);
         const wegld = await fetchToken(w.address, 'WEGLD-bd4d79');
@@ -550,7 +551,8 @@
         document.getElementById(`f${f.shard}Usdc`).textContent = (fwUsdc / 1e6).toFixed(2);
       }
 
-      document.getElementById('wegldSpent').textContent = (42 - totalWegld).toFixed(2);
+      // Don't hardcode WEGLD baseline — show actual remaining
+      document.getElementById('wegldSpent').textContent = totalWegld.toFixed(2);
       document.getElementById('usdcEarned').textContent = totalUsdc.toFixed(0);
 
       let totalTx = 0;
@@ -632,19 +634,23 @@
       }
     })();
 
-    // Update call-type progress bars and milestone
-    function updateProgressBars(total) {
-      const perType = Math.round(total / 4);
+    // Update call-type progress bars from ACTUAL per-type counts
+    function updateProgressBars(total, callTypeCounts) {
       const MAX_TARGET = 1000; // visual max scale
-      const bars = {syncBar: perType, v1Bar: perType, v2Bar: perType, teBar: perType};
+      const sync = callTypeCounts?.blindSync || 0;
+      const v1 = callTypeCounts?.blindAsyncV1 || 0;
+      const v2 = callTypeCounts?.blindAsyncV2 || 0;
+      const te = callTypeCounts?.blindTransfExec || 0;
+      const bars = {syncBar: sync, v1Bar: v1, v2Bar: v2, teBar: te};
+      const counts = {syncCount: sync, v1Count: v1, v2Count: v2, teCount: te};
       for (const [id, count] of Object.entries(bars)) {
         const el = document.getElementById(id);
         if (el) el.style.width = Math.min(100, (count / MAX_TARGET) * 100) + '%';
       }
-      document.getElementById('syncCount').textContent = perType;
-      document.getElementById('v1Count').textContent = perType;
-      document.getElementById('v2Count').textContent = perType;
-      document.getElementById('teCount').textContent = perType;
+      for (const [id, count] of Object.entries(counts)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = count.toLocaleString();
+      }
       // Milestone
       const pct = Math.min(100, (total / 2500) * 100);
       document.getElementById('milestoneFill').style.width = pct + '%';
@@ -655,13 +661,13 @@
       }
     }
 
-    // Poll checkpoint for live blaster stats
+    // Poll checkpoint.json for live blaster stats (ACTUAL per-type counts)
     async function pollCheckpoint() {
       try {
         const r = await fetch('/checkpoint.json?t=' + Date.now(), {signal: AbortSignal.timeout(2000)});
         if (r.ok) {
           const cp = await r.json();
-          if (cp.totalSent) updateProgressBars(cp.totalSent);
+          if (cp.totalSent) updateProgressBars(cp.totalSent, cp.callTypeCounts);
         }
       } catch {}
     }
