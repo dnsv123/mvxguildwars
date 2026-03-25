@@ -504,6 +504,7 @@ async function walletWorker(
   config: WalletWorkerConfig,
   windowEndMs: number,
   windowStartMs: number,
+  startNonce?: number, // If provided (from pre-sign burst), skip getAccountInfo nonce
 ): Promise<{ sent: number; errors: number }> {
   const { wallet, forwarderAddress, shard, callTypes, workerId } = config;
   const signer = new UserSigner(UserSecretKey.fromString(wallet.privateKey));
@@ -511,7 +512,18 @@ async function walletWorker(
   let errors = 0;
 
   try {
-  let { nonce, balance: egldBal } = await getAccountInfo(wallet.address);
+  let nonce: number;
+  let egldBal: bigint;
+  if (startNonce !== undefined) {
+    // Use nonce from pre-sign burst (already incremented past burst TXs)
+    nonce = startNonce;
+    const fresh = await getAccountInfo(wallet.address);
+    egldBal = fresh.balance;
+  } else {
+    const fresh = await getAccountInfo(wallet.address);
+    nonce = fresh.nonce;
+    egldBal = fresh.balance;
+  }
   let wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
   let batchCount = 0;
   let callTypeIdx = 0;
@@ -706,14 +718,89 @@ async function main() {
     log("💰", `  S${s}: ~${(avgEgld * sw.length).toFixed(2)} EGLD total, ~${(avgWegld * sw.length).toFixed(2)} WEGLD total (sampled)`);
   }
 
+  // ═══════════════════════════════════════
+  //  PRE-SIGN BURST — Sign TXs BEFORE window opens!
+  //  This gives us 600 TXs ready to blast at T=0
+  // ═══════════════════════════════════════
+  const PRE_SIGN_PER_WALLET = 10; // 10 TXs per wallet = 600 total burst
+  const preSignedByWorker: Map<number, { txJsons: string[]; nextNonce: number; callType: string }> = new Map();
+
+  const startMs = new Date(WINDOW_START).getTime();
+  const timeToStart = startMs - Date.now();
+
+  if (timeToStart > 15000) {
+    // We have time — pre-sign now
+    log("⚡", `PRE-SIGNING ${PRE_SIGN_PER_WALLET} TXs per wallet (${workerConfigs.length * PRE_SIGN_PER_WALLET} total)...`);
+
+    for (const wc of workerConfigs) {
+      try {
+        const signer = new UserSigner(UserSecretKey.fromString(wc.wallet.privateKey));
+        const { nonce } = await getAccountInfo(wc.wallet.address);
+        const txJsons: string[] = [];
+        let currentNonce = nonce;
+
+        for (let i = 0; i < PRE_SIGN_PER_WALLET; i++) {
+          const callType = wc.callTypes[i % wc.callTypes.length];
+          const data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
+          const txJson = await signAndSerializeSC(
+            signer, wc.wallet.address, wc.forwarderAddress,
+            currentNonce, BigInt(0), GAS_LIMIT_SC, GAS_PRICE_BASE, data,
+          );
+          txJsons.push(txJson);
+          currentNonce++;
+        }
+
+        preSignedByWorker.set(wc.workerId, {
+          txJsons,
+          nextNonce: currentNonce,
+          callType: wc.callTypes[0],
+        });
+      } catch (e: any) {
+        log("⚠️", `Pre-sign failed W${wc.workerId}: ${e.message?.substring(0, 60)}`);
+      }
+    }
+
+    log("⚡", `PRE-SIGNED ${preSignedByWorker.size} wallets × ${PRE_SIGN_PER_WALLET} = ${preSignedByWorker.size * PRE_SIGN_PER_WALLET} TXs ready!`);
+  } else {
+    log("⏭️", "Not enough time for pre-sign, will fire workers directly");
+  }
+
   // Wait for window
   await waitUntil(WINDOW_START, "CHALLENGE 4 START");
 
   const windowEndMs = new Date(WINDOW_END).getTime();
   const windowStartMs = Date.now();
 
-  // FIRE ALL WORKERS
-  log("🔥", `FIRING ${workerConfigs.length} WALLET WORKERS!`);
+  // ═══════════════════════════════════════
+  //  T=0: BURST — Fire all pre-signed TXs instantly!
+  // ═══════════════════════════════════════
+  if (preSignedByWorker.size > 0) {
+    log("💥", `BURST FIRE: ${preSignedByWorker.size * PRE_SIGN_PER_WALLET} pre-signed TXs!`);
+
+    const burstPromises: Promise<void>[] = [];
+    for (const [workerId, data] of preSignedByWorker) {
+      const wc = workerConfigs[workerId];
+      burstPromises.push((async () => {
+        for (const txJson of data.txJsons) {
+          try {
+            await sendTxRaw(txJson);
+            totalSent++;
+            // Count all pre-signed TXs evenly across call types
+            const ctIdx = data.txJsons.indexOf(txJson) % wc.callTypes.length;
+            const ct = wc.callTypes[ctIdx];
+            callTypeCounts[ct] = (callTypeCounts[ct] || 0) + 1;
+          } catch {
+            totalErrors++;
+          }
+        }
+      })());
+    }
+    await Promise.allSettled(burstPromises);
+    log("💥", `BURST COMPLETE: ${totalSent} sent in ${((Date.now() - windowStartMs) / 1000).toFixed(1)}s!`);
+  }
+
+  // FIRE ALL WORKERS (with updated nonce from pre-sign)
+  log("🔥", `FIRING ${workerConfigs.length} SUSTAINED WORKERS!`);
 
   const statsTimer = setInterval(() => {
     const elapsed = (Date.now() - windowStartMs) / 1000;
@@ -730,7 +817,11 @@ async function main() {
   }, 5000);
 
   const results = await Promise.allSettled(
-    workerConfigs.map(wc => walletWorker(wc, windowEndMs, windowStartMs))
+    workerConfigs.map(wc => {
+      const preSigned = preSignedByWorker.get(wc.workerId);
+      const startNonce = preSigned ? preSigned.nextNonce : undefined;
+      return walletWorker(wc, windowEndMs, windowStartMs, startNonce);
+    })
   ).then(settled => settled.map(r => r.status === 'fulfilled' ? r.value : { sent: 0, errors: 1 }));
 
   clearInterval(statsTimer);
