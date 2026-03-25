@@ -52,6 +52,11 @@ interface ForwarderConfig {
 // Will be loaded from c4_forwarders.json
 let FORWARDERS: ForwarderConfig[] = [];
 
+// ALL four call types must be used for full scoring
+const ALL_CALL_TYPES = ["blindSync", "blindAsyncV1", "blindAsyncV2", "blindTransfExec"];
+const callTypeCounts: Record<string, number> = {};
+ALL_CALL_TYPES.forEach(t => callTypeCounts[t] = 0);
+
 // ═══════════════════════════════════════════════════════════════
 //  TX CONFIG
 // ═══════════════════════════════════════════════════════════════
@@ -247,7 +252,7 @@ async function forwarderWorker(
   windowEndMs: number,
   windowStartMs: number,
 ): Promise<{ sent: number; errors: number }> {
-  const { wallet, forwarderAddress, callType, shard } = config;
+  const { wallet, forwarderAddress, shard } = config;
   const signer = new UserSigner(UserSecretKey.fromString(wallet.privateKey));
   
   let { nonce, balance: egldBal } = await getAccountInfo(wallet.address);
@@ -255,16 +260,16 @@ async function forwarderWorker(
   let sent = 0;
   let errors = 0;
   let batchCount = 0;
-  const BATCH_SIZE = 5; // Smaller batches = less speculative nonce risk
-  const NONCE_RESYNC_INTERVAL = 30; // Re-sync nonce every 30 batches
+  let callTypeIdx = 0; // rotate through all 4 call types
+  const BATCH_SIZE = 5;
+  const NONCE_RESYNC_INTERVAL = 30;
 
-  log("🔥", `Shard ${shard} worker: ${callType} → ${forwarderAddress.substring(0,20)}...`);
+  log("🔥", `Shard ${shard} worker: ALL 4 CALL TYPES → ${forwarderAddress.substring(0,20)}...`);
   log("💰", `  EGLD: ${(Number(egldBal) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegldBal) / 1e18).toFixed(4)}`);
 
   while (Date.now() < windowEndMs) {
     // Safety: check balances
     const gasNeeded = MIN_EGLD_FOR_GAS * BigInt(BATCH_SIZE);
-    const wegldNeeded = SWAP_AMOUNT * BigInt(BATCH_SIZE);
 
     if (egldBal < gasNeeded) {
       log("⚠️", `S${shard}: Low EGLD (${(Number(egldBal)/1e18).toFixed(4)}). Re-syncing...`);
@@ -286,7 +291,7 @@ async function forwarderWorker(
       }
     }
 
-    // Periodic nonce re-sync to avoid drift
+    // Periodic nonce re-sync
     if (batchCount > 0 && batchCount % NONCE_RESYNC_INTERVAL === 0) {
       const fresh = await getAccountInfo(wallet.address);
       nonce = fresh.nonce;
@@ -294,6 +299,10 @@ async function forwarderWorker(
       wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
       log("🔄", `S${shard}: Nonce re-sync → ${nonce} | EGLD: ${(Number(egldBal)/1e18).toFixed(4)}`);
     }
+
+    // Pick call type — round-robin across all 4
+    const callType = ALL_CALL_TYPES[callTypeIdx % ALL_CALL_TYPES.length];
+    callTypeIdx++;
 
     const gasPrice = getGasPrice();
     const batch: any[] = [];
@@ -324,21 +333,20 @@ async function forwarderWorker(
       const ok = await sendTxBatchRaw(batch);
       sent += ok;
       totalSent += ok;
-      // Estimate balance reduction
+      callTypeCounts[callType] = (callTypeCounts[callType] || 0) + ok;
       egldBal -= GAS_LIMIT_SC * gasPrice * BigInt(ok);
       wegldBal -= SWAP_AMOUNT * BigInt(ok);
     } catch {
       errors++;
       totalErrors++;
       failoverEndpoint();
-      // Re-sync after failure
       const fresh = await getAccountInfo(wallet.address);
       nonce = fresh.nonce;
       egldBal = fresh.balance;
     }
 
     batchCount++;
-    await sleep(300); // Slightly longer delay for reliability
+    await sleep(300);
   }
 
   return { sent, errors };
@@ -521,8 +529,14 @@ async function main() {
   console.log("\n" + "═".repeat(60));
   log("📊", "CONTRACT STORM SUMMARY");
   results.forEach((r, i) => {
-    log("📡", `Shard ${FORWARDERS[i].shard} (${FORWARDERS[i].callType}): ${r.sent} sent, ${r.errors} errors`);
+    log("📡", `Shard ${FORWARDERS[i].shard}: ${r.sent} sent, ${r.errors} errors`);
   });
+  console.log(`\n  Call Type Breakdown:`);
+  for (const ct of ALL_CALL_TYPES) {
+    const count = callTypeCounts[ct] || 0;
+    const status = count >= 300 ? '✅' : '❌';
+    console.log(`    ${status} ${ct}: ${count} (min 300)`);
+  }
   const elapsed = ((Date.now() - windowStartMs) / 1000).toFixed(1);
   console.log(`\n   TOTAL: ${totalSent} tx in ${elapsed}s (${Math.round(totalSent / parseFloat(elapsed))} tx/s)`);
   console.log("═".repeat(60));
