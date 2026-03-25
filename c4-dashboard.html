@@ -243,7 +243,7 @@
     const WINDOW_START = '2026-03-26T16:00:00Z';
     const WINDOW_END = '2026-03-26T17:00:00Z';
 
-    const GL_ADDR = 'erd1a5kxga87qlhcax5g9vv8yrj7jszg5r39rl5ez0m3ta8f77s4hcrsh3vgjc';
+    const GL_ADDR = 'erd158rt37truyh2yl5s0fp83nw9u2llmsxhr8g298eugt9x0w03d23qc8n9ng';
     const WALLETS = [
       { shard: 0, address: 'erd1m6cyl2zql2gvhhjw4r99dktc2j23pl4rlvq5r8938dwz2swp50wqvg075l', callType: 'blindAsyncV1' },
       { shard: 1, address: 'erd1ypr6sdu2q6sxzlrtdtsxyw3lk4mrznkzfmt4w29ht3l4c0vs8t3srm97lf', callType: 'blindSync' },
@@ -315,12 +315,20 @@
     }
 
     async function fetchBal(addr) {
-      try { const d = await (await fetch(`${API}/accounts/${addr}`)).json(); return { egld: Number(BigInt(d.balance)) / 1e18, nonce: d.nonce }; }
-      catch { return { egld: 0, nonce: 0 }; }
+      try {
+        const r = await fetch(`${API}/accounts/${addr}`);
+        if (!r.ok) return { egld: 0, nonce: 0 };
+        const d = await r.json();
+        return { egld: Number(BigInt(d.balance || '0')) / 1e18, nonce: d.nonce || 0 };
+      } catch { return { egld: 0, nonce: 0 }; }
     }
     async function fetchToken(addr, tok) {
-      try { const d = await (await fetch(`${API}/accounts/${addr}/tokens/${tok}`)).json(); return Number(BigInt(d.balance || '0')); }
-      catch { return 0; }
+      try {
+        const r = await fetch(`${API}/accounts/${addr}/tokens/${tok}`);
+        if (!r.ok) return 0;
+        const d = await r.json();
+        return Number(BigInt(d.balance || '0'));
+      } catch { return 0; }
     }
 
     let prevTotalTx = 0, prevTime = Date.now();
