@@ -468,87 +468,250 @@ async function waitUntil(iso: string, label: string) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  MAIN
+//  MULTI-WALLET WORKER — Creates one worker per wallet
+//  Each wallet maps to its shard's forwarder contract
+//  Shard 1: all 4 call types (blindSync works same-shard)
+//  Shard 0/2: 3 async types only (blindSync fails cross-shard!)
+// ═══════════════════════════════════════════════════════════════
+interface WalletWorkerConfig {
+  wallet: { address: string; privateKey: string };
+  shard: number;
+  forwarderAddress: string;
+  callTypes: string[]; // which call types this worker uses
+  workerId: number;
+}
+
+async function walletWorker(
+  config: WalletWorkerConfig,
+  windowEndMs: number,
+  windowStartMs: number,
+): Promise<{ sent: number; errors: number }> {
+  const { wallet, forwarderAddress, shard, callTypes, workerId } = config;
+  const signer = new UserSigner(UserSecretKey.fromString(wallet.privateKey));
+  
+  let { nonce, balance: egldBal } = await getAccountInfo(wallet.address);
+  let wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+  let sent = 0;
+  let errors = 0;
+  let batchCount = 0;
+  let callTypeIdx = 0;
+  const BATCH_SIZE = 5;
+  const NONCE_RESYNC_INTERVAL = 30;
+
+  log("🔥", `W${workerId} S${shard}: ${callTypes.length} types → ${forwarderAddress.substring(0,20)}...`);
+  log("💰", `  EGLD: ${(Number(egldBal) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegldBal) / 1e18).toFixed(4)}`);
+
+  while (Date.now() < windowEndMs) {
+    const gasNeeded = MIN_EGLD_FOR_GAS * BigInt(BATCH_SIZE);
+
+    if (egldBal < gasNeeded) {
+      const fresh = await getAccountInfo(wallet.address);
+      egldBal = fresh.balance;
+      nonce = fresh.nonce;
+      if (egldBal < MIN_EGLD_FOR_GAS) {
+        log("🛑", `W${workerId} S${shard}: Out of EGLD! Stopping.`);
+        break;
+      }
+    }
+
+    if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+      wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+      if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+        log("🛑", `W${workerId} S${shard}: Out of WEGLD! Stopping.`);
+        break;
+      }
+    }
+
+    // Periodic nonce re-sync
+    if (batchCount > 0 && batchCount % NONCE_RESYNC_INTERVAL === 0) {
+      const fresh = await getAccountInfo(wallet.address);
+      nonce = fresh.nonce;
+      egldBal = fresh.balance;
+      wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+    }
+
+    // Pick call type — round-robin across this worker's allowed types
+    const callType = callTypes[callTypeIdx % callTypes.length];
+    callTypeIdx++;
+
+    const gasPrice = getGasPrice();
+    const batch: any[] = [];
+
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      try {
+        const data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
+        const txJson = await signAndSerializeSC(
+          signer,
+          wallet.address,
+          forwarderAddress,
+          nonce,
+          BigInt(0),
+          GAS_LIMIT_SC,
+          gasPrice,
+          data,
+        );
+        batch.push(txJson);
+        nonce++;
+        wegldBal -= SWAP_AMOUNT;
+        egldBal -= GAS_LIMIT_SC * gasPrice;
+      } catch (e: any) {
+        errors++;
+        totalErrors++;
+      }
+    }
+
+    // Send batch
+    for (const txJson of batch) {
+      try {
+        await sendTxRaw(txJson);
+        sent++;
+        totalSent++;
+        callTypeCounts[callType] = (callTypeCounts[callType] || 0) + 1;
+      } catch (e: any) {
+        errors++;
+        totalErrors++;
+        if (e.message?.includes("nonce")) {
+          const fresh = await getAccountInfo(wallet.address);
+          nonce = fresh.nonce;
+          break;
+        }
+      }
+    }
+
+    batchCount++;
+    await sleep(50); // Tiny pause between batches for fairness
+  }
+
+  return { sent, errors };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN — 60-WALLET FLEET
 // ═══════════════════════════════════════════════════════════════
 async function main() {
   console.log("\n" + "█".repeat(60));
-  console.log("█  🔥 CHALLENGE 4: CONTRACT STORM");
-  console.log("█  Forwarder-Blind → DEX Pair SWAP via 4 call types");
-  console.log("█  💚 OpenHeart Guild — REDEMPTION TIME 💚");
+  console.log("█  🚀 CHALLENGE 4: CONTRACT STORM");
+  console.log("█  60-Wallet Fleet × 4 Call Types × 3 Shards");
+  console.log("█  💚 OpenHeart Guild — NOW OR NEVER 💚");
   console.log("█".repeat(60) + "\n");
 
-  // Load config
-  const configPath = path.join(__dirname, "..", "c4_forwarders.json");
-  if (!fs.existsSync(configPath)) {
-    log("❌", `Missing ${configPath}. Run setup first.`);
-    log("ℹ️", "Expected format:");
-    const example = [
-      { shard: 0, wallet: { address: "erd1...", privateKey: "hex..." }, forwarderAddress: "erd1qqq...", callType: "blindAsyncV1" },
-      { shard: 1, wallet: { address: "erd1...", privateKey: "hex..." }, forwarderAddress: "erd1qqq...", callType: "blindSync" },
-      { shard: 2, wallet: { address: "erd1...", privateKey: "hex..." }, forwarderAddress: "erd1qqq...", callType: "blindAsyncV1" },
-    ];
-    console.log(JSON.stringify(example, null, 2));
+  // Load forwarder contracts (3 — one per shard)
+  const fwdPath = path.join(__dirname, "..", "c4_forwarders.json");
+  if (!fs.existsSync(fwdPath)) {
+    log("❌", `Missing c4_forwarders.json. Deploy forwarders first.`);
     process.exit(1);
   }
+  FORWARDERS = JSON.parse(fs.readFileSync(fwdPath, "utf-8"));
+  
+  // Build shard → forwarder map
+  const fwdByShard: Record<number, string> = {};
+  for (const f of FORWARDERS) {
+    fwdByShard[f.shard] = f.forwarderAddress;
+  }
 
-  FORWARDERS = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-  log("📋", `Loaded ${FORWARDERS.length} forwarder configs`);
+  // Load wallet fleet
+  const walletPath = path.join(__dirname, "..", "c4_wallets.json");
+  if (!fs.existsSync(walletPath)) {
+    log("❌", `Missing c4_wallets.json. Run setup wallets first.`);
+    process.exit(1);
+  }
+  const wallets: { shard: number; address: string; privateKey: string }[] = 
+    JSON.parse(fs.readFileSync(walletPath, "utf-8"));
 
-  // Show which endpoints we're using
+  log("📋", `Loaded ${FORWARDERS.length} forwarders + ${wallets.length} wallets`);
   log("🌐", `Endpoints: ${ENDPOINTS.join(' → ')}`);
   log("🌐", `API: ${API_URL}`);
 
-  for (const f of FORWARDERS) {
-    log("📡", `Shard ${f.shard}: ${f.callType} → ${f.forwarderAddress.substring(0,30)}...`);
-    const { balance } = await getAccountInfo(f.wallet.address);
-    const wegld = await getTokenBalance(f.wallet.address, WEGLD_TOKEN);
-    const egldNum = Number(balance) / 1e18;
-    const wegldNum = Number(wegld) / 1e18;
-    const maxTxs = Math.floor(egldNum / 0.015);
-    log("💰", `  EGLD: ${egldNum.toFixed(4)} (~${maxTxs} txs of gas) | WEGLD: ${wegldNum.toFixed(4)} (~${Math.floor(wegldNum/0.001)} swaps)`);
-    if (egldNum < 0.1) log("⚠️", `  WARNING: Very low EGLD on S${f.shard}!`);
-    if (wegldNum < 0.01) log("⚠️", `  WARNING: Very low WEGLD on S${f.shard}!`);
+  // Create worker configs — map each wallet to its shard's forwarder
+  // CRITICAL: blindSync only works SAME-SHARD (Shard 1)
+  // Shard 0/2 = cross-shard → only 3 async types
+  const SHARD1_TYPES = ["blindSync", "blindAsyncV1", "blindAsyncV2", "blindTransfExec"];
+  const CROSS_SHARD_TYPES = ["blindAsyncV1", "blindAsyncV2", "blindTransfExec"];
+
+  const workerConfigs: WalletWorkerConfig[] = [];
+  let widx = 0;
+  const shardCounts = { 0: 0, 1: 0, 2: 0 } as Record<number, number>;
+
+  for (const w of wallets) {
+    const fwdAddr = fwdByShard[w.shard];
+    if (!fwdAddr) {
+      log("⚠️", `No forwarder for shard ${w.shard}, skipping wallet ${w.address.substring(0,16)}`);
+      continue;
+    }
+    const callTypes = w.shard === 1 ? SHARD1_TYPES : CROSS_SHARD_TYPES;
+    workerConfigs.push({
+      wallet: { address: w.address, privateKey: w.privateKey },
+      shard: w.shard,
+      forwarderAddress: fwdAddr,
+      callTypes,
+      workerId: widx,
+    });
+    shardCounts[w.shard] = (shardCounts[w.shard] || 0) + 1;
+    widx++;
   }
 
-  // ═══════════════════════════════════════
-  //  Wait for window
-  // ═══════════════════════════════════════
+  log("🚀", `Fleet: ${workerConfigs.length} workers`);
+  for (const s of [0,1,2]) {
+    const types = s === 1 ? '4 types (incl. blindSync)' : '3 async types';
+    log("📡", `  S${s}: ${shardCounts[s]} workers → ${fwdByShard[s]?.substring(0,20)}... [${types}]`);
+  }
+
+  // Show aggregate balance per shard
+  for (const s of [0,1,2]) {
+    const sw = wallets.filter(w => w.shard === s);
+    let totalEgld = BigInt(0), totalWegld = BigInt(0);
+    // Sample first 3 wallets for speed  
+    for (const w of sw.slice(0, 3)) {
+      const { balance } = await getAccountInfo(w.address);
+      const wegld = await getTokenBalance(w.address, WEGLD_TOKEN);
+      totalEgld += balance;
+      totalWegld += wegld;
+    }
+    const avgEgld = Number(totalEgld) / 3 / 1e18;
+    const avgWegld = Number(totalWegld) / 3 / 1e18;
+    log("💰", `  S${s}: ~${(avgEgld * sw.length).toFixed(2)} EGLD total, ~${(avgWegld * sw.length).toFixed(2)} WEGLD total (sampled)`);
+  }
+
+  // Wait for window
   await waitUntil(WINDOW_START, "CHALLENGE 4 START");
 
   const windowEndMs = new Date(WINDOW_END).getTime();
   const windowStartMs = Date.now();
 
-  // ═══════════════════════════════════════
-  //  FIRE all forwarder workers
-  // ═══════════════════════════════════════
-  log("🔥", `FIRING ${FORWARDERS.length} FORWARDER WORKERS!`);
+  // FIRE ALL WORKERS
+  log("🔥", `FIRING ${workerConfigs.length} WALLET WORKERS!`);
 
   const statsTimer = setInterval(() => {
     const elapsed = (Date.now() - windowStartMs) / 1000;
     const txps = elapsed > 0 ? Math.round(totalSent / elapsed) : 0;
     const rem = Math.max(0, Math.round((windowEndMs - Date.now()) / 1000));
-    const gasX = '1x';
-    log("📊", `${totalSent} tx | ${txps} tx/s | Gas: ${gasX} | Err: ${totalErrors} | ${rem}s left`);
+    log("📊", `${totalSent} tx | ${txps} tx/s | Err: ${totalErrors} | ${rem}s left`);
+    // Call type breakdown
+    const breakdown = ALL_CALL_TYPES.map(t => `${t.replace('blind','')}:${callTypeCounts[t]||0}`).join(' | ');
+    log("📡", `  ${breakdown}`);
     try {
-      const cp = { totalSent, totalErrors, txps, gasX, elapsed, timestamp: new Date().toISOString() };
+      const cp = { totalSent, totalErrors, txps, callTypeCounts, elapsed, timestamp: new Date().toISOString() };
       fs.writeFileSync(path.join(__dirname, "..", "checkpoint.json"), JSON.stringify(cp, null, 2));
     } catch {}
   }, 5000);
 
   const results = await Promise.all(
-    FORWARDERS.map(f => forwarderWorker(f, windowEndMs, windowStartMs))
+    workerConfigs.map(wc => walletWorker(wc, windowEndMs, windowStartMs))
   );
 
   clearInterval(statsTimer);
 
-  // ═══════════════════════════════════════
-  //  SUMMARY
-  // ═══════════════════════════════════════
+  // SUMMARY
   console.log("\n" + "═".repeat(60));
   log("📊", "CONTRACT STORM SUMMARY");
-  results.forEach((r, i) => {
-    log("📡", `Shard ${FORWARDERS[i].shard}: ${r.sent} sent, ${r.errors} errors`);
-  });
+  
+  for (const s of [0,1,2]) {
+    const shardResults = results.filter((_, i) => workerConfigs[i].shard === s);
+    const shardSent = shardResults.reduce((a, r) => a + r.sent, 0);
+    const shardErr = shardResults.reduce((a, r) => a + r.errors, 0);
+    log("📡", `Shard ${s}: ${shardSent} sent, ${shardErr} errors (${shardResults.length} workers)`);
+  }
+  
   console.log(`\n  Call Type Breakdown:`);
   for (const ct of ALL_CALL_TYPES) {
     const count = callTypeCounts[ct] || 0;
@@ -559,9 +722,7 @@ async function main() {
   console.log(`\n   TOTAL: ${totalSent} tx in ${elapsed}s (${Math.round(totalSent / parseFloat(elapsed))} tx/s)`);
   console.log("═".repeat(60));
 
-  // ═══════════════════════════════════════
-  //  DRAIN all forwarders
-  // ═══════════════════════════════════════
+  // DRAIN all forwarders
   log("🔄", "Draining forwarder contracts...");
   await drainAllForwarders();
 
@@ -570,3 +731,4 @@ async function main() {
 }
 
 main().catch(err => { console.error("❌ Fatal:", err); process.exit(1); });
+

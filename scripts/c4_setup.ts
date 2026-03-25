@@ -116,16 +116,22 @@ function getWalletShard(bech32: string): number {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  STEP 1: Generate shard-specific wallets
+//  STEP 1: Generate shard-specific wallets (60 total fleet)
+//  Shard 1 gets 30 (same-shard as DEX → fastest, blindSync works)
+//  Shard 0/2 get 15 each (cross-shard, async calls only)
 // ═══════════════════════════════════════════════════════════════
 function stepWallets() {
-  log("⚙️", "Generating 3 shard-specific wallets...");
+  // Optimal distribution: S0=15, S1=30, S2=15 (total=60)
+  // Shard 1 = DEX shard → blindSync + same-shard = fastest, so we give it 2x
+  const SHARD_COUNTS: Record<number, number> = { 0: 15, 1: 30, 2: 15 };
+  const total = Object.values(SHARD_COUNTS).reduce((a,b) => a+b, 0);
+  log("⚙️", `Generating ${total}-wallet fleet: S0=${SHARD_COUNTS[0]}, S1=${SHARD_COUNTS[1]} (DEX shard), S2=${SHARD_COUNTS[2]}`);
   const wallets: { shard: number; address: string; privateKey: string; mnemonic: string }[] = [];
 
   for (let targetShard = 0; targetShard < 3; targetShard++) {
-    let attempts = 0;
-    while (attempts < 10000) {
-      attempts++;
+    const needed = SHARD_COUNTS[targetShard];
+    let generated = 0;
+    while (generated < needed) {
       const mnemonic = Mnemonic.generate();
       const sk = mnemonic.deriveKey(0);
       const signer = new UserSigner(sk);
@@ -139,8 +145,10 @@ function stepWallets() {
           privateKey: Buffer.from(sk.valueOf()).toString("hex"),
           mnemonic: mnemonic.toString(),
         });
-        log("✅", `Shard ${targetShard}: ${addr} (${attempts} attempts)`);
-        break;
+        generated++;
+        if (generated % 5 === 0 || generated === needed) {
+          log("✅", `Shard ${targetShard}: ${generated}/${needed} wallets generated`);
+        }
       }
     }
   }
@@ -151,8 +159,11 @@ function stepWallets() {
   // Also save as latest
   fs.writeFileSync(path.join(__dirname, "..", "c4_wallets.json"), JSON.stringify(wallets, null, 2));
   log("💾", `Saved to ${filepath} + c4_wallets.json`);
-  console.log("\nWallets:");
-  wallets.forEach(w => console.log(`  Shard ${w.shard}: ${w.address}`));
+  console.log(`\n🚀 Fleet: ${wallets.length} wallets ready`);
+  for (const s of [0,1,2]) {
+    const sw = wallets.filter(w => w.shard === s);
+    console.log(`  Shard ${s}: ${sw.length} wallets ${s===1 ? '(DEX shard — all 4 types)' : '(cross-shard — 3 async types)'}`);
+  }
   return wallets;
 }
 
