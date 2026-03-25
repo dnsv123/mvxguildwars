@@ -309,6 +309,60 @@ async function stepTestCall() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  MICRO-FUND: Send tiny amounts to 60 fleet wallets for testing
+// ═══════════════════════════════════════════════════════════════
+async function stepMicroFund() {
+  const glHex = process.env.GL_PRIVATE_KEY!;
+  const glSigner = new UserSigner(UserSecretKey.fromString(glHex));
+  const glAddr = glSigner.getAddress().bech32();
+  const { balance, nonce } = await acctInfo(glAddr);
+  const glEgld = Number(balance) / 1e18;
+
+  const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
+  const PER_WALLET = BigInt(100_000_000_000_000_000); // 0.1 EGLD per wallet
+  const totalNeeded = Number(PER_WALLET) * wallets.length / 1e18;
+
+  log("💰", `GL: ${glEgld.toFixed(4)} EGLD | Need: ${totalNeeded.toFixed(2)} EGLD for ${wallets.length} wallets`);
+  if (glEgld < totalNeeded + 1) {
+    log("⚠️", `Not enough EGLD! Need ${totalNeeded.toFixed(2)} + 1 reserve`);
+    return;
+  }
+
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    try {
+      const hash = await signAndSend(glSigner, glAddr, w.address, nonce + i, PER_WALLET, BigInt(50_000), "");
+      if (i % 10 === 0 || i === wallets.length - 1) log("📤", `Funded ${i + 1}/${wallets.length} (S${w.shard})`);
+    } catch (e: any) {
+      log("❌", `Fund error wallet ${i}: ${e.message?.substring(0, 60)}`);
+    }
+  }
+
+  log("⏳", "Waiting 15s for confirmations...");
+  await sleep(15000);
+
+  // Now micro-wrap: wrap 0.05 EGLD on each wallet
+  log("🔄", "Micro-wrapping 0.05 EGLD → WEGLD on each wallet...");
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
+    const { nonce: wNonce } = await acctInfo(w.address);
+    const wrapAmt = BigInt(50_000_000_000_000_000); // 0.05 EGLD
+    try {
+      await signAndSend(signer, w.address, WRAP_SC, wNonce, wrapAmt, BigInt(5_000_000), "wrapEgld");
+      if (i % 10 === 0 || i === wallets.length - 1) log("🔄", `Wrapped ${i + 1}/${wallets.length}`);
+    } catch (e: any) {
+      log("❌", `Wrap error wallet ${i}: ${e.message?.substring(0, 60)}`);
+    }
+    if (i % 5 === 4) await sleep(1000); // Pace to avoid nonce issues
+  }
+
+  log("⏳", "Waiting 15s...");
+  await sleep(15000);
+  log("✅", "Micro-fund + wrap complete! Run 'status' to verify.");
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  CLI
 // ═══════════════════════════════════════════════════════════════
 async function main() {
@@ -319,13 +373,14 @@ async function main() {
   console.log("═".repeat(50) + "\n");
 
   switch (step) {
-    case "wallets":  stepWallets(); break;
-    case "fund":     await stepFund(); break;
-    case "wrap":     await stepWrap(); break;
-    case "status":   await stepStatus(); break;
-    case "test-call": await stepTestCall(); break;
+    case "wallets":    stepWallets(); break;
+    case "fund":       await stepFund(); break;
+    case "wrap":       await stepWrap(); break;
+    case "status":     await stepStatus(); break;
+    case "test-call":  await stepTestCall(); break;
+    case "micro-fund": await stepMicroFund(); break;
     default:
-      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call]");
+      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund]");
   }
 }
 

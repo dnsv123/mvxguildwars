@@ -388,18 +388,18 @@ async function forwarderWorker(
 async function drainForwarder(
   config: ForwarderConfig,
   tokenId: string,
-): Promise<void> {
+  drainNonce: number,
+): Promise<number> {
   const signer = new UserSigner(UserSecretKey.fromString(config.wallet.privateKey));
-  const { nonce } = await getAccountInfo(config.wallet.address);
 
   const data = buildDrainData(tokenId);
   const txJson = await signAndSerializeSC(
     signer,
     config.wallet.address,
     config.forwarderAddress,
-    nonce,
+    drainNonce,
     BigInt(0),
-    BigInt(10_000_000),
+    BigInt(30_000_000), // 30M gas for drain
     GAS_PRICE_BASE,
     data,
   );
@@ -410,15 +410,22 @@ async function drainForwarder(
   } catch (e: any) {
     log("⚠️", `Drain error S${config.shard}: ${e.message?.substring(0, 80)}`);
   }
+  return drainNonce + 1;
 }
 
 async function drainAllForwarders(): Promise<void> {
+  log("🔄", "Waiting 10s for pending TXs to settle before draining...");
+  await sleep(10000);
   log("🔄", "Draining all forwarders...");
   for (const f of FORWARDERS) {
-    // Drain both USDC and WEGLD
-    await drainForwarder(f, USDC_TOKEN);
-    await drainForwarder(f, WEGLD_TOKEN);
-    await sleep(500);
+    // Re-fetch FRESH nonce after all TXs are settled
+    const { nonce } = await getAccountInfo(f.wallet.address);
+    let currentNonce = nonce;
+    // Drain both USDC and WEGLD sequentially with correct nonces
+    currentNonce = await drainForwarder(f, USDC_TOKEN, currentNonce);
+    await sleep(1000);
+    currentNonce = await drainForwarder(f, WEGLD_TOKEN, currentNonce);
+    await sleep(1000);
   }
   log("✅", "Drain complete");
 }
@@ -509,7 +516,7 @@ async function walletWorker(
   let batchCount = 0;
   let callTypeIdx = 0;
   const BATCH_SIZE = 5;
-  const NONCE_RESYNC_INTERVAL = 30;
+  const NONCE_RESYNC_INTERVAL = 10; // Resync every 10 batches (aggressive for cross-shard)
 
   log("🔥", `W${workerId} S${shard}: ${callTypes.length} types → ${forwarderAddress.substring(0,20)}...`);
   log("💰", `  EGLD: ${(Number(egldBal) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegldBal) / 1e18).toFixed(4)}`);
@@ -535,7 +542,7 @@ async function walletWorker(
       }
     }
 
-    // Periodic nonce re-sync
+    // Periodic nonce re-sync (aggressive for cross-shard reliability)
     if (batchCount > 0 && batchCount % NONCE_RESYNC_INTERVAL === 0) {
       const fresh = await getAccountInfo(wallet.address);
       nonce = fresh.nonce;
@@ -573,7 +580,8 @@ async function walletWorker(
       }
     }
 
-    // Send batch
+    // Send batch — stop on first error and resync nonce immediately
+    let batchHadError = false;
     for (const txJson of batch) {
       try {
         await sendTxRaw(txJson);
@@ -583,12 +591,21 @@ async function walletWorker(
       } catch (e: any) {
         errors++;
         totalErrors++;
-        if (e.message?.includes("nonce")) {
-          const fresh = await getAccountInfo(wallet.address);
-          nonce = fresh.nonce;
-          break;
-        }
+        batchHadError = true;
+        break; // Stop sending rest of batch — nonces after this are invalid
       }
+    }
+
+    // On ANY error: immediately resync nonce (don't wait for NONCE_RESYNC_INTERVAL)
+    if (batchHadError) {
+      try {
+        const fresh = await getAccountInfo(wallet.address);
+        nonce = fresh.nonce;
+        egldBal = fresh.balance;
+      } catch {
+        // If resync fails, just continue with current nonce
+      }
+      await sleep(200); // Brief pause after error
     }
 
     batchCount++;
