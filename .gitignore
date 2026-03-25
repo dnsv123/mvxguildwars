@@ -4,3 +4,7 @@ wallets.json
 wallets_part1.json
 wallets_part2.json
 *.pem
+OpenMem.md
+c4_wallets*.json
+c4_forwarders.json
+checkpoint.json
