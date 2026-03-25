@@ -18,11 +18,19 @@
     .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
     .star { position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%; animation: twinkle 3s ease-in-out infinite; }
     @keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
+    /* Scan line overlay */
+    .scanline { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; background: repeating-linear-gradient(0deg, rgba(0,212,255,0.01) 0px, transparent 1px, transparent 3px); }
     .container { max-width: 1300px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
 
-    .header { text-align: center; padding: 24px 0 16px; }
-    .header h1 { font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, #ff6b35, var(--gold), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .header { text-align: center; padding: 24px 0 8px; }
+    .header h1 { font-size: 2.2rem; font-weight: 900; background: linear-gradient(135deg, #ff6b35, var(--gold), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
     .header p { color: var(--muted); margin-top: 4px; font-size: 0.9rem; }
+    .mission-brief { background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(179,136,255,0.06)); border: 1px solid rgba(0,212,255,0.2); border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; }
+    .mission-brief h2 { font-size: 0.8rem; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    .mission-brief p { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
+    .mission-brief strong { color: var(--text); }
+    .mission-brief .scoring { display: flex; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+    .mission-brief .score-chip { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
 
     .clock-bar { display: flex; justify-content: center; align-items: center; gap: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 28px; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
     .clock-bar .utc-time { font-size: 2rem; font-weight: 700; color: var(--accent); }
@@ -162,10 +170,23 @@
 <body>
   <div class="bg-glow"></div>
   <div class="stars" id="starField"></div>
+  <div class="scanline"></div>
   <div class="container">
     <div class="header">
-      <h1>🔥 Contract Storm — Challenge 4</h1>
-      <p>Battle of Nodes — Guild Wars · March 26, 2026 · 16:00–17:00 UTC</p>
+      <h1>🚀 Contract Storm — Challenge 4</h1>
+      <p>Battle of Nodes — Guild Wars · OpenHeart Guild · March 26, 2026 · 16:00–17:00 UTC</p>
+    </div>
+
+    <div class="mission-brief">
+      <h2>🎯 Mission Briefing</h2>
+      <p>We deploy <strong>forwarder smart contracts</strong> on each of the 3 blockchain shards. Our script sends <strong>WEGLD tokens</strong> to these forwarders, which <strong>swap them for USDC</strong> on the xExchange DEX. We must use <strong>all 4 call mechanisms</strong> (blindSync, blindAsyncV1, V2, TransfExec) with at least <strong>300 successful calls per type</strong>. Capital recycles — USDC gets drained back and swapped again. The only real cost is <strong>gas fees</strong>. First 3 guilds to hit <strong>2,500 total calls</strong> earn a milestone bonus.</p>
+      <div class="scoring">
+        <div class="score-chip">🏆 Tech <span class="val-accent">75%</span></div>
+        <div class="score-chip">📝 Content <span class="val-gold">25%</span></div>
+        <div class="score-chip">🚀 Bonus <span class="val-green">+10 pts</span></div>
+        <div class="score-chip">⚡ Min <span class="val-orange">300/type</span></div>
+        <div class="score-chip">💰 Budget <span class="val-purple">500 EGLD</span></div>
+      </div>
     </div>
 
     <div class="clock-bar">
@@ -175,20 +196,19 @@
     </div>
 
     <!-- How It Works -->
-    <div class="section-title">🧠 How This Challenge Works</div>
+    <div class="section-title">🧠 Transaction Flow — How Every Swap Happens</div>
     <div class="section-hint">
-      We send <strong>WEGLD tokens</strong> to our <strong>forwarder contracts</strong>, which swap them for <strong>USDC</strong> on the DEX.
-      The more successful swaps we make in 60 minutes, the higher our score. Think of it like automated trading through a middleman contract.
+      Each swap follows this path: Our <strong>wallet</strong> sends WEGLD + call instruction → our <strong>forwarder contract</strong> receives it and calls the <strong>DEX pair contract</strong> → DEX swaps WEGLD→USDC → tokens return (or stay in forwarder for draining). We repeat this <strong>thousands of times</strong> in 60 minutes using 4 different call mechanisms.
     </div>
     <div class="how-box">
       <div class="how-flow">
-        <div class="flow-step"><div class="flow-icon">👛</div><div class="flow-label">Our Wallet</div></div>
+        <div class="flow-step"><div class="flow-icon">👛</div><div class="flow-label">Our Wallet<br><span style="font-size:0.55rem;color:var(--accent)">sends WEGLD</span></div></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-icon">📦</div><div class="flow-label">Forwarder Contract</div></div>
+        <div class="flow-step"><div class="flow-icon">📦</div><div class="flow-label">Forwarder SC<br><span style="font-size:0.55rem;color:var(--accent)">1 per shard</span></div></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-icon">🏦</div><div class="flow-label">DEX (Exchange)</div></div>
+        <div class="flow-step"><div class="flow-icon">🏦</div><div class="flow-label">xExchange DEX<br><span style="font-size:0.55rem;color:var(--green)">Shard 1</span></div></div>
         <div class="flow-arrow">→</div>
-        <div class="flow-step"><div class="flow-icon">💰</div><div class="flow-label">WEGLD → USDC</div></div>
+        <div class="flow-step"><div class="flow-icon">💰</div><div class="flow-label">Swap Result<br><span style="font-size:0.55rem;color:var(--gold)">WEGLD→USDC</span></div></div>
       </div>
     </div>
 
@@ -239,44 +259,45 @@
     <!-- Shard Wallets + Contracts -->
     <div class="section-title">🏗️ Shard Wallets & Forwarder Contracts</div>
     <div class="section-hint">
-      The blockchain has <strong>3 parallel lanes called "Shards"</strong> (0, 1, 2). The DEX lives on <strong>Shard 1</strong>.
-      Each card below shows one wallet + its contract. <strong>Green border = same shard as DEX</strong> (fastest).
-      <strong>Orange = cross-shard</strong> (slower, tokens need to be recovered with "drain").
+      MultiversX splits the network into <strong>3 parallel processing lanes (Shards 0, 1, 2)</strong>. The DEX pair contract lives on <strong>Shard 1</strong>.
+      We deploy one forwarder contract and one wallet per shard. <strong>🟢 Green border = same shard as DEX</strong> (blindSync works here, fastest).
+      <strong>🟠 Orange = cross-shard</strong> (async calls only, tokens need draining). Each worker cycles through <strong>all 4 call types</strong> via round-robin.
     </div>
     <div class="shard-grid" id="shardGrid"></div>
 
     <!-- Call Types -->
-    <div class="section-title">📡 The 4 Call Methods</div>
+    <div class="section-title">📡 The 4 Call Methods — Must Hit 300+ Each!</div>
     <div class="section-hint">
-      There are <strong>4 different ways</strong> our forwarder can talk to the DEX. Each has trade-offs.
-      <strong>blindSync</strong> is the fastest (instant, same-shard only).
-      The others work cross-shard but are slower. During the challenge, we'll use all 4.
+      MultiversX supports <strong>4 different contract-to-contract call mechanisms</strong>. The challenge requires us to use ALL 4.
+      Each type must individually reach <strong>300 successful calls minimum</strong> or we lose scoring eligibility.
+      <strong>blindSync</strong> = instant but same-shard only. The others work cross-shard but are slower and require <strong>draining</strong> stuck tokens back.
+      Our blaster rotates through all 4 types automatically on every worker.
     </div>
     <div class="call-grid">
       <div class="call-card active-call" id="callSync">
         <div class="call-name">⚡ blindSync</div>
-        <div class="call-desc">Fastest method. Only works when forwarder & DEX are on the same shard. Tokens come back instantly.</div>
+        <div class="call-desc">Fastest method. Same-shard ONLY (Shard 1 forwarder). Tokens return instantly. No drain needed. Our speed weapon.</div>
         <div class="call-stat val-green" id="syncCount">0</div>
         <div class="call-sub">successful calls</div>
         <div class="call-progress"><div class="call-progress-fill green" id="syncBar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
       </div>
       <div class="call-card" id="callV1">
         <div class="call-name">🔄 blindAsyncV1</div>
-        <div class="call-desc">Classic async call. Works across shards. Cross-shard tokens stay in forwarder — need drain to recover.</div>
+        <div class="call-desc">Classic async call via callback. Works on ALL shards. Same-shard: tokens return. Cross-shard: tokens stay in forwarder → drain to recover.</div>
         <div class="call-stat val-accent" id="v1Count">0</div>
         <div class="call-sub">successful calls</div>
         <div class="call-progress"><div class="call-progress-fill cyan" id="v1Bar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
       </div>
       <div class="call-card" id="callV2">
         <div class="call-name">🔗 blindAsyncV2</div>
-        <div class="call-desc">Newer async with "promises". Same behavior as V1 — drain needed for cross-shard.</div>
+        <div class="call-desc">Newer async using "promises" pattern. Same behavior as V1 for token returns. Cross-shard requires drain. Tests the Promises VM feature.</div>
         <div class="call-stat val-purple" id="v2Count">0</div>
         <div class="call-sub">successful calls</div>
         <div class="call-progress"><div class="call-progress-fill purple" id="v2Bar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
       </div>
       <div class="call-card" id="callTE">
         <div class="call-name">📤 blindTransfExec</div>
-        <div class="call-desc">Fire-and-forget call. No callback. Tokens ALWAYS stay in forwarder — drain needed every time.</div>
+        <div class="call-desc">Fire-and-forget async. No callback whatsoever. Tokens ALWAYS stay in forwarder (even same-shard!) → drain required every time.</div>
         <div class="call-stat val-orange" id="teCount">0</div>
         <div class="call-sub">successful calls</div>
         <div class="call-progress"><div class="call-progress-fill orange" id="teBar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
@@ -416,11 +437,13 @@
       } catch { return { egld: 0, nonce: 0 }; }
     }
     async function fetchToken(addr, tok) {
+      // Use GATEWAY for accurate ESDT balance (BoN API indexer has lag!)
       try {
-        const r = await fetch(`${API}/accounts/${addr}/tokens/${tok}`);
+        const r = await fetch(`https://gateway.battleofnodes.com/address/${addr}/esdt/${tok}`, {signal: AbortSignal.timeout(8000)});
         if (!r.ok) return 0;
         const d = await r.json();
-        return Number(BigInt(d.balance || '0'));
+        const bal = d?.data?.tokenData?.balance;
+        return bal ? Number(BigInt(bal)) : 0;
       } catch { return 0; }
     }
 
