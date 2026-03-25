@@ -104,6 +104,15 @@
     .milestone-count { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 900; color: var(--gold); }
     .milestone-label { font-size: 0.6rem; color: var(--muted); text-align: right; }
 
+    /* Hero Counter — Giant cockpit display */
+    .hero-counter { text-align: center; padding: 20px 0 10px; }
+    .hero-counter .hero-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 4px; }
+    .hero-counter .hero-num { font-family: 'JetBrains Mono', monospace; font-size: 5rem; font-weight: 900; color: var(--green); text-shadow: 0 0 40px rgba(0,230,118,0.4), 0 0 80px rgba(0,230,118,0.2); line-height: 1; }
+    .hero-counter .hero-tps { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; color: var(--accent); margin-top: 4px; }
+    .hero-counter.active .hero-num { animation: heroGlow 2s ease-in-out infinite; }
+    @keyframes heroGlow { 0%, 100% { text-shadow: 0 0 40px rgba(0,230,118,0.4); } 50% { text-shadow: 0 0 60px rgba(0,230,118,0.6), 0 0 120px rgba(0,230,118,0.3); } }
+    .fleet-badge { display: inline-block; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); border-radius: 20px; padding: 4px 14px; font-size: 0.7rem; color: var(--accent); font-weight: 700; margin-top: 8px; }
+
     /* How It Works */
     .how-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
     .how-box h3 { font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; color: var(--accent); }
@@ -193,6 +202,14 @@
       <div><div class="label">UTC Now</div><div class="utc-time" id="utcClock">--:--:--</div></div>
       <div><div class="label">Challenge In</div><div class="countdown" id="windowCD">--:--:--</div></div>
       <div><div class="label">Status</div><div class="countdown" id="windowStatus" style="color:var(--muted)">PRE-CHALLENGE</div></div>
+    </div>
+
+    <!-- Hero Counter — Big cockpit display -->
+    <div class="hero-counter" id="heroCounter">
+      <div class="hero-label">Total Successful SC Calls</div>
+      <div class="hero-num" id="heroNum">0</div>
+      <div class="hero-tps"><span id="heroTPS">0</span> tx/s</div>
+      <div class="fleet-badge">🚀 60-WALLET FLEET × 3 SHARDS × 4 CALL TYPES</div>
     </div>
 
     <!-- How It Works -->
@@ -412,9 +429,9 @@
             <span class="shard-badge ${isSame ? 'same' : 'cross'}">${isSame ? '⚡ SAME-SHARD' : '🔀 CROSS-SHARD'}</span>
             <div class="shard-header">
               <span class="shard-num">Shard ${w.shard}</span>
-              <span class="shard-type">ALL 4 TYPES</span>
+              <span class="shard-type">${isSame ? 'ALL 4 TYPES' : '3 ASYNC TYPES'}</span>
             </div>
-            <div class="shard-hint">${SHARD_HINTS[w.shard]}</div>
+            <div style="font-size:0.6rem;color:var(--accent);margin-bottom:6px;font-weight:700">👛 ${isSame ? '30 wallets' : '15 wallets'} · ${isSame ? 'blindSync + 3 Async' : 'AsyncV1 / V2 / TransfExec'}</div>
             <div class="wallet-row"><span class="row-label">👛 Wallet</span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${w.address}')" title="Click to view on Explorer">${w.address.slice(0,16)}...${w.address.slice(-6)}</span></div>
             <div class="wallet-row"><span class="row-label">EGLD <span class="info-tip">?<span class="tip-text">Native token, used for gas fees</span></span></span><span class="row-value val-accent" id="s${w.shard}Egld">--</span></div>
             <div class="wallet-row"><span class="row-label">WEGLD <span class="info-tip">?<span class="tip-text">Wrapped EGLD — the token we swap on DEX</span></span></span><span class="row-value val-green" id="s${w.shard}Wegld">--</span></div>
@@ -561,6 +578,30 @@
         document.getElementById('callsPerMin').textContent = cpm > 0 ? cpm : '—';
       }
       prevTotalTx = totalTx; prevTime = now;
+
+      // Update hero counter
+      document.getElementById('heroNum').textContent = totalTx.toLocaleString();
+      if (totalTx > 0) document.getElementById('heroCounter').classList.add('active');
+      // Try checkpoint.json for TPS
+      try {
+        const cpRes = await fetch('/checkpoint.json?t=' + Date.now(), {signal: AbortSignal.timeout(2000)});
+        if (cpRes.ok) {
+          const cp = await cpRes.json();
+          if (cp.txps) document.getElementById('heroTPS').textContent = cp.txps;
+          if (cp.totalSent) {
+            document.getElementById('heroNum').textContent = cp.totalSent.toLocaleString();
+            document.getElementById('totalCalls').textContent = cp.totalSent.toLocaleString();
+          }
+          // Update per-type bars from checkpoint
+          if (cp.callTypeCounts) {
+            const ctc = cp.callTypeCounts;
+            if (ctc.blindSync != null) { document.getElementById('syncCount').textContent = ctc.blindSync; }
+            if (ctc.blindAsyncV1 != null) { document.getElementById('v1Count').textContent = ctc.blindAsyncV1; }
+            if (ctc.blindAsyncV2 != null) { document.getElementById('v2Count').textContent = ctc.blindAsyncV2; }
+            if (ctc.blindTransfExec != null) { document.getElementById('teCount').textContent = ctc.blindTransfExec; }
+          }
+        }
+      } catch {}
 
       addLog('info', `Polled: ${totalTx} calls | ${totalWegld.toFixed(2)} WEGLD | ${totalUsdc.toFixed(0)} USDC`);
     }
