@@ -90,7 +90,7 @@ function bigIntToHex(n: bigint): string {
 }
 
 function addressToHex(bech32: string): string {
-  return Address.fromBech32(bech32).hex();
+  return Buffer.from(new Address(bech32).getPublicKey()).toString("hex");
 }
 
 /**

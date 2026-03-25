@@ -95,7 +95,7 @@ function log(icon: string, msg: string) {
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 function getWalletShard(bech32: string): number {
-  const pk = Address.fromBech32(bech32).getPublicKey();
+  const pk = new Address(bech32).getPublicKey();
   const last = pk[pk.length - 1];
   let shard = last % 4;
   if (shard === 3) shard = last % 2;
@@ -240,7 +240,7 @@ async function stepTestCall() {
 
   function strToHex(s: string) { return Buffer.from(s).toString("hex"); }
   function bigIntToHex(n: bigint) { const h = n.toString(16); return h.length % 2 ? "0"+h : h; }
-  function addressToHex(b: string) { return Address.fromBech32(b).hex(); }
+  function addressToHex(b: string) { return Buffer.from(new Address(b).getPublicKey()).toString("hex"); }
 
   for (const f of fwds) {
     const signer = new UserSigner(UserSecretKey.fromString(f.wallet.privateKey));
