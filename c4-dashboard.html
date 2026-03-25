@@ -25,15 +25,18 @@
     .clock-bar .countdown { font-size: 1.2rem; color: var(--gold); }
     .clock-bar .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; }
 
-    .section-title { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px; display: flex; align-items: center; gap: 8px; }
+    .section-title { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 6px; display: flex; align-items: center; gap: 8px; }
     .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .section-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; line-height: 1.5; padding: 8px 14px; background: rgba(0,212,255,0.04); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; }
+    .section-hint strong { color: var(--text); }
 
     /* GL Wallet */
     .gl-card { background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(179,136,255,0.08)); border: 1px solid var(--accent); border-radius: 14px; padding: 18px 24px; margin-bottom: 16px; display: flex; align-items: center; gap: 20px; }
     .gl-card .gl-icon { font-size: 2rem; }
     .gl-card .gl-info { flex: 1; }
     .gl-card .gl-label { font-size: 0.7rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
-    .gl-card .gl-addr { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .gl-card .gl-addr { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--muted); margin-top: 2px; cursor: pointer; }
+    .gl-card .gl-addr:hover { color: var(--accent); }
     .gl-card .gl-bal { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 900; color: var(--accent); }
 
     /* Shard Grid */
@@ -43,27 +46,42 @@
     .shard-card .shard-badge { position: absolute; top: 12px; right: 12px; padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
     .shard-card .shard-badge.cross { background: rgba(255,145,0,0.15); color: var(--orange); }
     .shard-card .shard-badge.same { background: rgba(0,230,118,0.15); color: var(--green); }
-    .shard-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .shard-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
     .shard-header .shard-num { font-size: 1.4rem; font-weight: 900; color: var(--accent); }
     .shard-header .shard-type { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .shard-hint { font-size: 0.68rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; font-style: italic; }
 
     .wallet-row, .contract-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(42,53,85,0.5); }
     .wallet-row:last-child, .contract-row:last-child { border-bottom: none; }
-    .row-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .row-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
     .row-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700; }
     .row-addr { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); cursor: pointer; }
     .row-addr:hover { color: var(--accent); }
     .val-green { color: var(--green); } .val-accent { color: var(--accent); }
-    .val-orange { color: var(--orange); } .val-gold { color: var(--gold); } .val-red { color: var(--red); }
+    .val-orange { color: var(--orange); } .val-gold { color: var(--gold); } .val-red { color: var(--red); } .val-purple { color: var(--purple); }
+
+    /* Info tooltip */
+    .info-tip { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,212,255,0.15); color: var(--accent); font-size: 0.6rem; font-weight: 700; cursor: help; position: relative; font-style: normal; }
+    .info-tip .tip-text { display: none; position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e2a4a; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; font-size: 0.7rem; color: var(--text); white-space: nowrap; z-index: 100; font-weight: 400; line-height: 1.4; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+    .info-tip:hover .tip-text { display: block; }
 
     /* Call Types */
     .call-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-    .call-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .call-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; position: relative; }
     .call-card.active-call { border-color: var(--green); }
     .call-name { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
-    .call-desc { font-size: 0.65rem; color: var(--muted); margin-bottom: 8px; }
+    .call-desc { font-size: 0.65rem; color: var(--muted); margin-bottom: 6px; line-height: 1.4; }
     .call-stat { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 900; }
     .call-sub { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+    /* How It Works */
+    .how-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+    .how-box h3 { font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; color: var(--accent); }
+    .how-flow { display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; flex-wrap: wrap; }
+    .flow-step { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; text-align: center; }
+    .flow-step .flow-icon { font-size: 1.2rem; }
+    .flow-step .flow-label { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+    .flow-arrow { color: var(--accent); font-size: 1.2rem; }
 
     /* Stats Bar */
     .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -83,15 +101,13 @@
     .log-entries::-webkit-scrollbar { width: 4px; } .log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .log-entry { color: var(--muted); } .log-entry.success { color: var(--green); } .log-entry.info { color: var(--accent); } .log-entry.warn { color: var(--orange); }
 
-    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-    .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .dot-orange { background: var(--orange); }
-    .dot-red { background: var(--red); }
-
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .pulsing { animation: pulse 1.5s infinite; }
 
-    @media (max-width: 900px) { .shard-grid { grid-template-columns: 1fr; } .call-grid { grid-template-columns: repeat(2, 1fr); } .stats-bar { grid-template-columns: repeat(3, 1fr); } }
+    .footer { text-align: center; padding: 20px; font-size: 0.75rem; color: var(--muted); }
+    .footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 900px) { .shard-grid { grid-template-columns: 1fr; } .call-grid { grid-template-columns: repeat(2, 1fr); } .stats-bar { grid-template-columns: repeat(3, 1fr); } .how-flow { flex-direction: column; } .flow-arrow { transform: rotate(90deg); } }
   </style>
 </head>
 <body>
@@ -104,17 +120,39 @@
 
     <div class="clock-bar">
       <div><div class="label">UTC Now</div><div class="utc-time" id="utcClock">--:--:--</div></div>
-      <div><div class="label">Window</div><div class="countdown" id="windowCD">--:--:--</div></div>
+      <div><div class="label">Challenge In</div><div class="countdown" id="windowCD">--:--:--</div></div>
       <div><div class="label">Status</div><div class="countdown" id="windowStatus" style="color:var(--muted)">PRE-CHALLENGE</div></div>
     </div>
 
+    <!-- How It Works -->
+    <div class="section-title">🧠 How This Challenge Works</div>
+    <div class="section-hint">
+      We send <strong>WEGLD tokens</strong> to our <strong>forwarder contracts</strong>, which swap them for <strong>USDC</strong> on the DEX.
+      The more successful swaps we make in 60 minutes, the higher our score. Think of it like automated trading through a middleman contract.
+    </div>
+    <div class="how-box">
+      <div class="how-flow">
+        <div class="flow-step"><div class="flow-icon">👛</div><div class="flow-label">Our Wallet</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">📦</div><div class="flow-label">Forwarder Contract</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">🏦</div><div class="flow-label">DEX (Exchange)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="flow-icon">💰</div><div class="flow-label">WEGLD → USDC</div></div>
+      </div>
+    </div>
+
     <!-- GL Wallet -->
-    <div class="section-title">👑 Guild Leader Wallet (Funding Only)</div>
+    <div class="section-title">👑 Guild Leader Wallet</div>
+    <div class="section-hint">
+      This is our <strong>main funding wallet</strong>. It sends EGLD to the 3 shard wallets below.
+      <strong>It does NOT make swap transactions</strong> — only funds. This is a rule from the organizers.
+    </div>
     <div class="gl-card">
       <div class="gl-icon">👑</div>
       <div class="gl-info">
-        <div class="gl-label">Guild Leader</div>
-        <div class="gl-addr" id="glAddr">Loading...</div>
+        <div class="gl-label">Guild Leader — Funding Only</div>
+        <div class="gl-addr" id="glAddr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/'+GL_ADDR)">Loading...</div>
       </div>
       <div>
         <div class="gl-bal" id="glBal">--</div>
@@ -124,32 +162,42 @@
 
     <!-- Shard Wallets + Contracts -->
     <div class="section-title">🏗️ Shard Wallets & Forwarder Contracts</div>
+    <div class="section-hint">
+      The blockchain has <strong>3 parallel lanes called "Shards"</strong> (0, 1, 2). The DEX lives on <strong>Shard 1</strong>.
+      Each card below shows one wallet + its contract. <strong>Green border = same shard as DEX</strong> (fastest).
+      <strong>Orange = cross-shard</strong> (slower, tokens need to be recovered with "drain").
+    </div>
     <div class="shard-grid" id="shardGrid"></div>
 
     <!-- Call Types -->
-    <div class="section-title">📡 Call Types Performance</div>
+    <div class="section-title">📡 The 4 Call Methods</div>
+    <div class="section-hint">
+      There are <strong>4 different ways</strong> our forwarder can talk to the DEX. Each has trade-offs.
+      <strong>blindSync</strong> is the fastest (instant, same-shard only).
+      The others work cross-shard but are slower. During the challenge, we'll use all 4.
+    </div>
     <div class="call-grid">
       <div class="call-card active-call" id="callSync">
         <div class="call-name">⚡ blindSync</div>
-        <div class="call-desc">Same-Shard Only · No Drain</div>
+        <div class="call-desc">Fastest method. Only works when forwarder & DEX are on the same shard. Tokens come back instantly.</div>
         <div class="call-stat val-green" id="syncCount">0</div>
         <div class="call-sub">successful calls</div>
       </div>
       <div class="call-card" id="callV1">
         <div class="call-name">🔄 blindAsyncV1</div>
-        <div class="call-desc">Cross-Shard · Drain Cross</div>
+        <div class="call-desc">Classic async call. Works across shards. Cross-shard tokens stay in forwarder — need drain to recover.</div>
         <div class="call-stat val-accent" id="v1Count">0</div>
         <div class="call-sub">successful calls</div>
       </div>
       <div class="call-card" id="callV2">
         <div class="call-name">🔗 blindAsyncV2</div>
-        <div class="call-desc">Promises · Drain Cross</div>
+        <div class="call-desc">Newer async with "promises". Same behavior as V1 — drain needed for cross-shard.</div>
         <div class="call-stat val-purple" id="v2Count">0</div>
         <div class="call-sub">successful calls</div>
       </div>
       <div class="call-card" id="callTE">
         <div class="call-name">📤 blindTransfExec</div>
-        <div class="call-desc">No Callback · Drain Always</div>
+        <div class="call-desc">Fire-and-forget call. No callback. Tokens ALWAYS stay in forwarder — drain needed every time.</div>
         <div class="call-stat val-orange" id="teCount">0</div>
         <div class="call-sub">successful calls</div>
       </div>
@@ -157,6 +205,10 @@
 
     <!-- Stats -->
     <div class="section-title">📊 Live Stats</div>
+    <div class="section-hint">
+      Real-time numbers from the blockchain. <strong>Total Calls</strong> = how many swap attempts.
+      <strong>WEGLD Spent</strong> = tokens sent to DEX. <strong>USDC Earned</strong> = tokens received back.
+    </div>
     <div class="stats-bar">
       <div class="mini-stat"><div class="ms-label">Total Calls</div><div class="ms-val val-accent" id="totalCalls">0</div></div>
       <div class="mini-stat"><div class="ms-label">Calls/Min</div><div class="ms-val val-green" id="callsPerMin">0</div></div>
@@ -174,10 +226,15 @@
 
     <!-- Log -->
     <div class="log-section">
-      <h3>📋 Activity Log</h3>
+      <h3>📋 Activity Log <span style="font-weight:400;font-size:0.65rem;color:var(--muted)">— auto-refreshes every 15 seconds</span></h3>
       <div class="log-entries" id="logEntries">
         <div class="log-entry info">Dashboard loaded. Polling wallet data...</div>
       </div>
+    </div>
+
+    <div class="footer">
+      💚 OpenHeart Guild — Powered by <a href="https://supervictoruniverse.com" target="_blank">SuperVictor</a>
+      · Data refreshes every 15s · Click wallet addresses to open in Explorer
     </div>
   </div>
 
@@ -186,7 +243,6 @@
     const WINDOW_START = '2026-03-26T16:00:00Z';
     const WINDOW_END = '2026-03-26T17:00:00Z';
 
-    // CONFIG — loaded from hardcoded values matching the droplet
     const GL_ADDR = 'erd1a5kxga87qlhcax5g9vv8yrj7jszg5r39rl5ez0m3ta8f77s4hcrsh3vgjc';
     const WALLETS = [
       { shard: 0, address: 'erd1m6cyl2zql2gvhhjw4r99dktc2j23pl4rlvq5r8938dwz2swp50wqvg075l', callType: 'blindAsyncV1' },
@@ -199,7 +255,12 @@
       { shard: 2, address: 'erd1qqqqqqqqqqqqqpgqpskjkdvyceattq5vkgq6yy73khud43xur0eqhd2ha6' },
     ];
 
-    // Clock
+    const SHARD_HINTS = {
+      0: 'Cross-shard to DEX. Slower but tests async composability. Tokens need "drain" to recover.',
+      1: 'Same shard as the DEX! Fastest path. Tokens return instantly with blindSync.',
+      2: 'Cross-shard to DEX. Slower but tests async composability. Tokens need "drain" to recover.',
+    };
+
     function updateClock() {
       const now = new Date();
       document.getElementById('utcClock').textContent = now.toISOString().slice(11, 19);
@@ -228,7 +289,6 @@
       return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
     }
 
-    // Build shard cards
     function buildShardCards() {
       const grid = document.getElementById('shardGrid');
       WALLETS.forEach((w, i) => {
@@ -237,23 +297,23 @@
           <div class="shard-card ${isSame ? 'same-shard' : ''}">
             <span class="shard-badge ${isSame ? 'same' : 'cross'}">${isSame ? '⚡ SAME-SHARD' : '🔀 CROSS-SHARD'}</span>
             <div class="shard-header">
-              <span class="shard-num">S${w.shard}</span>
+              <span class="shard-num">Shard ${w.shard}</span>
               <span class="shard-type">${w.callType}</span>
             </div>
-            <div class="wallet-row"><span class="row-label">Wallet</span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${w.address}')" title="${w.address}">${w.address.slice(0,16)}...${w.address.slice(-6)}</span></div>
-            <div class="wallet-row"><span class="row-label">EGLD</span><span class="row-value val-accent" id="s${w.shard}Egld">--</span></div>
-            <div class="wallet-row"><span class="row-label">WEGLD</span><span class="row-value val-green" id="s${w.shard}Wegld">--</span></div>
-            <div class="wallet-row"><span class="row-label">USDC</span><span class="row-value val-gold" id="s${w.shard}Usdc">--</span></div>
+            <div class="shard-hint">${SHARD_HINTS[w.shard]}</div>
+            <div class="wallet-row"><span class="row-label">👛 Wallet</span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${w.address}')" title="Click to view on Explorer">${w.address.slice(0,16)}...${w.address.slice(-6)}</span></div>
+            <div class="wallet-row"><span class="row-label">EGLD <span class="info-tip">?<span class="tip-text">Native token, used for gas fees</span></span></span><span class="row-value val-accent" id="s${w.shard}Egld">--</span></div>
+            <div class="wallet-row"><span class="row-label">WEGLD <span class="info-tip">?<span class="tip-text">Wrapped EGLD — the token we swap on DEX</span></span></span><span class="row-value val-green" id="s${w.shard}Wegld">--</span></div>
+            <div class="wallet-row"><span class="row-label">USDC <span class="info-tip">?<span class="tip-text">Stablecoin received from swaps ($1 each)</span></span></span><span class="row-value val-gold" id="s${w.shard}Usdc">--</span></div>
             <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-              <div class="contract-row"><span class="row-label">📦 Forwarder</span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${FORWARDERS[i].address}')" title="${FORWARDERS[i].address}">${FORWARDERS[i].address.slice(0,16)}...${FORWARDERS[i].address.slice(-6)}</span></div>
-              <div class="contract-row"><span class="row-label">FWD WEGLD</span><span class="row-value val-orange" id="f${w.shard}Wegld">0</span></div>
-              <div class="contract-row"><span class="row-label">FWD USDC</span><span class="row-value val-gold" id="f${w.shard}Usdc">0</span></div>
+              <div class="contract-row"><span class="row-label">📦 Forwarder <span class="info-tip">?<span class="tip-text">Our smart contract that forwards calls to the DEX</span></span></span><span class="row-addr" onclick="window.open('https://bon-explorer.multiversx.com/accounts/${FORWARDERS[i].address}')" title="Click to view contract">${FORWARDERS[i].address.slice(0,16)}...${FORWARDERS[i].address.slice(-6)}</span></div>
+              <div class="contract-row"><span class="row-label">FWD WEGLD <span class="info-tip">?<span class="tip-text">WEGLD stuck in forwarder (needs drain)</span></span></span><span class="row-value val-orange" id="f${w.shard}Wegld">0</span></div>
+              <div class="contract-row"><span class="row-label">FWD USDC <span class="info-tip">?<span class="tip-text">USDC stuck in forwarder (needs drain)</span></span></span><span class="row-value val-gold" id="f${w.shard}Usdc">0</span></div>
             </div>
           </div>`;
       });
     }
 
-    // Polling
     async function fetchBal(addr) {
       try { const d = await (await fetch(`${API}/accounts/${addr}`)).json(); return { egld: Number(BigInt(d.balance)) / 1e18, nonce: d.nonce }; }
       catch { return { egld: 0, nonce: 0 }; }
@@ -263,14 +323,13 @@
       catch { return 0; }
     }
 
+    let prevTotalTx = 0, prevTime = Date.now();
     async function pollAll() {
-      // GL
       const gl = await fetchBal(GL_ADDR);
       document.getElementById('glBal').textContent = gl.egld.toFixed(4);
       document.getElementById('glAddr').textContent = GL_ADDR;
 
       let totalWegld = 0, totalUsdc = 0;
-      // Shard wallets
       for (const w of WALLETS) {
         const b = await fetchBal(w.address);
         const wegld = await fetchToken(w.address, 'WEGLD-bd4d79');
@@ -281,7 +340,6 @@
         totalWegld += wegld / 1e18;
         totalUsdc += usdc / 1e6;
       }
-      // Forwarders
       for (const f of FORWARDERS) {
         const fwWegld = await fetchToken(f.address, 'WEGLD-bd4d79');
         const fwUsdc = await fetchToken(f.address, 'USDC-c76f1f');
@@ -289,21 +347,24 @@
         document.getElementById(`f${f.shard}Usdc`).textContent = (fwUsdc / 1e6).toFixed(2);
       }
 
-      // Stats
       document.getElementById('wegldSpent').textContent = (42 - totalWegld).toFixed(2);
       document.getElementById('usdcEarned').textContent = totalUsdc.toFixed(0);
 
-      // TX counts per wallet
       let totalTx = 0;
       for (const w of WALLETS) {
-        try {
-          const c = await (await fetch(`${API}/accounts/${w.address}/transactions/count`)).json();
-          totalTx += (typeof c === 'number') ? c : 0;
-        } catch {}
+        try { const c = await (await fetch(`${API}/accounts/${w.address}/transactions/count`)).json(); totalTx += (typeof c === 'number') ? c : 0; } catch {}
       }
       document.getElementById('totalCalls').textContent = totalTx.toLocaleString();
 
-      addLog('info', `Polled: ${totalTx} total calls | ${totalWegld.toFixed(2)} WEGLD | ${totalUsdc.toFixed(0)} USDC`);
+      const now = Date.now();
+      const elapsed = (now - prevTime) / 60000;
+      if (elapsed > 0 && prevTotalTx > 0) {
+        const cpm = Math.round((totalTx - prevTotalTx) / elapsed);
+        document.getElementById('callsPerMin').textContent = cpm > 0 ? cpm : '—';
+      }
+      prevTotalTx = totalTx; prevTime = now;
+
+      addLog('info', `Polled: ${totalTx} calls | ${totalWegld.toFixed(2)} WEGLD | ${totalUsdc.toFixed(0)} USDC`);
     }
 
     function addLog(type, msg) {
@@ -316,7 +377,6 @@
       if (el.children.length > 50) el.removeChild(el.lastChild);
     }
 
-    // Init
     buildShardCards();
     setInterval(updateClock, 200);
     updateClock();
