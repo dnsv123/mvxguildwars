@@ -60,11 +60,11 @@ ALL_CALL_TYPES.forEach(t => callTypeCounts[t] = 0);
 // ═══════════════════════════════════════════════════════════════
 //  TX CONFIG
 // ═══════════════════════════════════════════════════════════════
-const GAS_LIMIT_SC    = BigInt(15_000_000); // 15M for SC calls (reduced from 30M for gas efficiency)
+const GAS_LIMIT_SC    = BigInt(80_000_000); // 80M — forwarder→DEX chain needs 30-50M (unused gas is REFUNDED on MultiversX)
 const GAS_PRICE_BASE  = BigInt(1_000_000_000);
 const SWAP_AMOUNT     = BigInt(1_000_000_000_000_000); // 0.001 WEGLD per swap
 const MIN_OUT_AMOUNT  = BigInt(1); // minimum 1 USDC unit
-const MIN_EGLD_FOR_GAS = BigInt(15_000_000) * BigInt(1_000_000_000); // 0.015 EGLD min per tx
+const MIN_EGLD_FOR_GAS = BigInt(80_000_000) * BigInt(1_000_000_000); // 0.08 EGLD max per tx (actual cost ~0.03 after refund)
 const MIN_WEGLD_FOR_SWAP = SWAP_AMOUNT; // need at least 1 swap worth
 
 // Multi-endpoint failover
