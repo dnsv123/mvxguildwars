@@ -158,11 +158,15 @@ async function stepFund() {
   log("💰", `GL: ${(Number(balance) / 1e18).toFixed(4)} EGLD, nonce=${nonce}`);
 
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
-  const amountEach = BigInt(2e18); // 2 EGLD each (for gas fees)
+  // Split GL balance evenly, keeping 5 EGLD reserve in GL
+  const glEgld = Number(balance) / 1e18;
+  const perWallet = Math.floor((glEgld - 5) / wallets.length);
+  const amountEach = BigInt(Math.floor(perWallet * 1e18));
+  log("📊", `GL has ${glEgld.toFixed(2)} EGLD → sending ${perWallet} EGLD to each of ${wallets.length} wallets`);
 
   for (let i = 0; i < wallets.length; i++) {
     const w = wallets[i];
-    log("📤", `Funding Shard ${w.shard}: ${w.address} with 2 EGLD...`);
+    log("📤", `Funding Shard ${w.shard}: ${w.address} with ${perWallet} EGLD...`);
     const hash = await signAndSend(glSigner, glAddr, w.address, nonce + i, amountEach, BigInt(50_000), "");
     log("✅", `TX: ${hash}`);
   }
@@ -181,12 +185,19 @@ async function stepFund() {
 // ═══════════════════════════════════════════════════════════════
 async function stepWrap() {
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
-  const wrapAmount = BigInt(14e18); // Wrap 14 EGLD, keep 1 for gas
 
   for (const w of wallets) {
     const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
-    const { nonce } = await acctInfo(w.address);
-    log("🔄", `Wrapping 14 EGLD on Shard ${w.shard}...`);
+    const { balance, nonce } = await acctInfo(w.address);
+    const egld = Number(balance) / 1e18;
+    // Keep 3 EGLD for gas, wrap the rest
+    const toWrap = Math.max(0, egld - 3);
+    if (toWrap <= 0) {
+      log("⚠️", `Shard ${w.shard}: Only ${egld.toFixed(4)} EGLD — not enough to wrap (need >3)`);
+      continue;
+    }
+    const wrapAmount = BigInt(Math.floor(toWrap * 1e18));
+    log("🔄", `Wrapping ${toWrap.toFixed(2)} EGLD on Shard ${w.shard} (keeping 3 EGLD for gas)...`);
     const hash = await signAndSend(signer, w.address, WRAP_SC, nonce, wrapAmount, BigInt(5_000_000), "wrapEgld");
     log("✅", `Wrap TX: ${hash}`);
     await sleep(2000);
@@ -196,8 +207,16 @@ async function stepWrap() {
   await sleep(15000);
 
   for (const w of wallets) {
-    const wegld = await tokenBal(w.address, WEGLD_TOKEN);
+    // Use bulk tokens endpoint
+    let wegld = BigInt(0);
+    try {
+      const tokens: any[] = await apiGet(`${API_URL}/accounts/${w.address}/tokens`) as any[];
+      for (const t of tokens) {
+        if (t.identifier === WEGLD_TOKEN) wegld = BigInt(t.balance || "0");
+      }
+    } catch {}
     log("💰", `Shard ${w.shard}: ${(Number(wegld) / 1e18).toFixed(4)} WEGLD`);
+    await sleep(300);
   }
 }
 
