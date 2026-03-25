@@ -178,12 +178,19 @@ async function getAccountInfo(addr: string): Promise<{ balance: bigint; nonce: n
 }
 
 async function getTokenBalance(addr: string, token: string): Promise<bigint> {
-  try {
-    const d = await apiGet(`${API_URL}/accounts/${addr}/tokens/${token}`);
-    return BigInt(d.balance || "0");
-  } catch {
-    return BigInt(0);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      // Use bulk /tokens endpoint to avoid per-token 404/rate-limit issues
+      const tokens: any[] = await apiGet(`${API_URL}/accounts/${addr}/tokens`);
+      for (const t of tokens) {
+        if (t.identifier === token) return BigInt(t.balance || "0");
+      }
+      return BigInt(0);
+    } catch {
+      await sleep(500);
+    }
   }
+  return BigInt(0);
 }
 
 async function sendTxRaw(txJson: any): Promise<string> {
