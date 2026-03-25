@@ -12,8 +12,12 @@
       --orange: #ff9100; --red: #ff5252; --purple: #b388ff; --gold: #ffd740;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
     .bg-glow { position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 800px; background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+    /* Animated star field */
+    .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+    .star { position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%; animation: twinkle 3s ease-in-out infinite; }
+    @keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.9; } }
     .container { max-width: 1300px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
 
     .header { text-align: center; padding: 24px 0 16px; }
@@ -71,8 +75,26 @@
     .call-card.active-call { border-color: var(--green); }
     .call-name { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; }
     .call-desc { font-size: 0.65rem; color: var(--muted); margin-bottom: 6px; line-height: 1.4; }
-    .call-stat { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 900; }
-    .call-sub { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+    .call-stat { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 900; margin-top: 6px; }
+    .call-sub { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    /* Call type progress bar */
+    .call-progress { margin-top: 8px; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; position: relative; overflow: hidden; }
+    .call-progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease; min-width: 2px; }
+    .call-progress-fill.green { background: linear-gradient(90deg, var(--green), #69f0ae); box-shadow: 0 0 8px var(--green); }
+    .call-progress-fill.cyan { background: linear-gradient(90deg, var(--accent), #18ffff); box-shadow: 0 0 8px var(--accent); }
+    .call-progress-fill.purple { background: linear-gradient(90deg, var(--purple), #e040fb); box-shadow: 0 0 8px var(--purple); }
+    .call-progress-fill.orange { background: linear-gradient(90deg, var(--orange), #ffab40); box-shadow: 0 0 8px var(--orange); }
+    .call-target { position: absolute; top: -2px; height: 10px; width: 2px; background: var(--red); z-index: 2; }
+    .call-target-label { position: absolute; top: -14px; font-size: 0.5rem; color: var(--red); font-weight: 700; white-space: nowrap; }
+    /* Milestone tracker */
+    .milestone-bar { background: linear-gradient(135deg, rgba(255,215,64,0.08), rgba(255,145,0,0.08)); border: 1px solid rgba(255,215,64,0.3); border-radius: 12px; padding: 14px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 16px; }
+    .milestone-icon { font-size: 1.6rem; }
+    .milestone-info { flex: 1; }
+    .milestone-title { font-size: 0.75rem; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .milestone-progress { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; margin-top: 6px; overflow: hidden; }
+    .milestone-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--gold)); border-radius: 4px; transition: width 1s ease; box-shadow: 0 0 12px rgba(255,215,64,0.4); }
+    .milestone-count { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 900; color: var(--gold); }
+    .milestone-label { font-size: 0.6rem; color: var(--muted); text-align: right; }
 
     /* How It Works */
     .how-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
@@ -139,6 +161,7 @@
 </head>
 <body>
   <div class="bg-glow"></div>
+  <div class="stars" id="starField"></div>
   <div class="container">
     <div class="header">
       <h1>🔥 Contract Storm — Challenge 4</h1>
@@ -235,24 +258,41 @@
         <div class="call-desc">Fastest method. Only works when forwarder & DEX are on the same shard. Tokens come back instantly.</div>
         <div class="call-stat val-green" id="syncCount">0</div>
         <div class="call-sub">successful calls</div>
+        <div class="call-progress"><div class="call-progress-fill green" id="syncBar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
       </div>
       <div class="call-card" id="callV1">
         <div class="call-name">🔄 blindAsyncV1</div>
         <div class="call-desc">Classic async call. Works across shards. Cross-shard tokens stay in forwarder — need drain to recover.</div>
         <div class="call-stat val-accent" id="v1Count">0</div>
         <div class="call-sub">successful calls</div>
+        <div class="call-progress"><div class="call-progress-fill cyan" id="v1Bar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
       </div>
       <div class="call-card" id="callV2">
         <div class="call-name">🔗 blindAsyncV2</div>
         <div class="call-desc">Newer async with "promises". Same behavior as V1 — drain needed for cross-shard.</div>
         <div class="call-stat val-purple" id="v2Count">0</div>
         <div class="call-sub">successful calls</div>
+        <div class="call-progress"><div class="call-progress-fill purple" id="v2Bar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
       </div>
       <div class="call-card" id="callTE">
         <div class="call-name">📤 blindTransfExec</div>
         <div class="call-desc">Fire-and-forget call. No callback. Tokens ALWAYS stay in forwarder — drain needed every time.</div>
         <div class="call-stat val-orange" id="teCount">0</div>
         <div class="call-sub">successful calls</div>
+        <div class="call-progress"><div class="call-progress-fill orange" id="teBar" style="width:0%"></div><div class="call-target" style="left:30%"><span class="call-target-label">300 min</span></div></div>
+      </div>
+    </div>
+
+    <!-- Milestone Bonus -->
+    <div class="milestone-bar" id="milestoneBar">
+      <div class="milestone-icon">🏆</div>
+      <div class="milestone-info">
+        <div class="milestone-title">Milestone Bonus — First to 2,500 SC calls = +10 pts</div>
+        <div class="milestone-progress"><div class="milestone-fill" id="milestoneFill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="milestone-count" id="milestoneCount">0 / 2,500</div>
+        <div class="milestone-label">total calls</div>
       </div>
     </div>
 
@@ -512,6 +552,56 @@
       if (el.children.length > 50) el.removeChild(el.lastChild);
     }
 
+    // Generate animated star field
+    (function initStars() {
+      const sf = document.getElementById('starField');
+      for (let i = 0; i < 100; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        s.style.left = Math.random() * 100 + '%';
+        s.style.top = Math.random() * 100 + '%';
+        s.style.width = (1 + Math.random() * 2) + 'px';
+        s.style.height = s.style.width;
+        s.style.animationDelay = (Math.random() * 3) + 's';
+        s.style.animationDuration = (2 + Math.random() * 4) + 's';
+        sf.appendChild(s);
+      }
+    })();
+
+    // Update call-type progress bars and milestone
+    function updateProgressBars(total) {
+      const perType = Math.round(total / 4);
+      const MAX_TARGET = 1000; // visual max scale
+      const bars = {syncBar: perType, v1Bar: perType, v2Bar: perType, teBar: perType};
+      for (const [id, count] of Object.entries(bars)) {
+        const el = document.getElementById(id);
+        if (el) el.style.width = Math.min(100, (count / MAX_TARGET) * 100) + '%';
+      }
+      document.getElementById('syncCount').textContent = perType;
+      document.getElementById('v1Count').textContent = perType;
+      document.getElementById('v2Count').textContent = perType;
+      document.getElementById('teCount').textContent = perType;
+      // Milestone
+      const pct = Math.min(100, (total / 2500) * 100);
+      document.getElementById('milestoneFill').style.width = pct + '%';
+      document.getElementById('milestoneCount').textContent = `${total.toLocaleString()} / 2,500`;
+      if (total >= 2500) {
+        document.getElementById('milestoneBar').style.borderColor = 'var(--green)';
+        document.getElementById('milestoneBar').classList.add('glowing');
+      }
+    }
+
+    // Poll checkpoint for live blaster stats
+    async function pollCheckpoint() {
+      try {
+        const r = await fetch('/checkpoint.json?t=' + Date.now(), {signal: AbortSignal.timeout(2000)});
+        if (r.ok) {
+          const cp = await r.json();
+          if (cp.totalSent) updateProgressBars(cp.totalSent);
+        }
+      } catch {}
+    }
+
     buildShardCards();
     setInterval(updateClock, 200);
     updateClock();
@@ -519,6 +609,7 @@
     setInterval(pollAll, 15000);
     pollObservers();
     setInterval(pollObservers, 30000);
+    setInterval(pollCheckpoint, 5000);
   </script>
 </body>
 </html>

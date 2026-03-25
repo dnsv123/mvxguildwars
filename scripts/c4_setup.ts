@@ -210,9 +210,18 @@ async function stepStatus() {
     const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
     for (const w of wallets) {
       const { balance } = await acctInfo(w.address);
-      const wegld = await tokenBal(w.address, WEGLD_TOKEN);
-      const usdc = await tokenBal(w.address, USDC_TOKEN);
-      log("💰", `S${w.shard} ${w.address.substring(0,20)}... | EGLD: ${(Number(balance)/1e18).toFixed(4)} | WEGLD: ${(Number(wegld)/1e18).toFixed(4)} | USDC: ${Number(usdc)}`);
+      await sleep(300);
+      // Use /tokens to get ALL tokens at once (avoids rate-limiting per-token queries)
+      let wegld = BigInt(0), usdc = BigInt(0);
+      try {
+        const tokens: any[] = await apiGet(`${API_URL}/accounts/${w.address}/tokens`);
+        for (const t of tokens) {
+          if (t.identifier === WEGLD_TOKEN) wegld = BigInt(t.balance || "0");
+          if (t.identifier === USDC_TOKEN) usdc = BigInt(t.balance || "0");
+        }
+      } catch {}
+      await sleep(300);
+      log("💰", `S${w.shard} ${w.address.substring(0,20)}... | EGLD: ${(Number(balance)/1e18).toFixed(4)} | WEGLD: ${(Number(wegld)/1e18).toFixed(4)} | USDC: ${(Number(usdc)/1e6).toFixed(2)}`);
     }
   }
 
@@ -220,9 +229,16 @@ async function stepStatus() {
     log("📋", "=== FORWARDER STATUS ===");
     const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
     for (const f of fwds) {
-      const wegld = await tokenBal(f.forwarderAddress, WEGLD_TOKEN);
-      const usdc = await tokenBal(f.forwarderAddress, USDC_TOKEN);
-      log("📦", `S${f.shard} ${f.forwarderAddress.substring(0,20)}... | ${f.callType} | WEGLD: ${(Number(wegld)/1e18).toFixed(4)} | USDC: ${Number(usdc)}`);
+      let wegld = BigInt(0), usdc = BigInt(0);
+      try {
+        const tokens: any[] = await apiGet(`${API_URL}/accounts/${f.forwarderAddress}/tokens`);
+        for (const t of tokens) {
+          if (t.identifier === WEGLD_TOKEN) wegld = BigInt(t.balance || "0");
+          if (t.identifier === USDC_TOKEN) usdc = BigInt(t.balance || "0");
+        }
+      } catch {}
+      await sleep(300);
+      log("📦", `S${f.shard} ${f.forwarderAddress.substring(0,20)}... | ${f.callType} | WEGLD: ${(Number(wegld)/1e18).toFixed(4)} | USDC: ${(Number(usdc)/1e6).toFixed(2)}`);
     }
   }
 }
