@@ -148,9 +148,21 @@ function buildWrapData(): string {
 //  RAW HTTP — ZERO SDK NETWORKING
 // ═══════════════════════════════════════════════════════════════
 async function apiGet(endpoint: string): Promise<any> {
-  const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`API ${res.status}: ${endpoint}`);
-  return res.json();
+  const RETRIES = 3;
+  for (let attempt = 0; attempt < RETRIES; attempt++) {
+    try {
+      const timeoutMs = 10000 + attempt * 5000; // 10s, 15s, 20s
+      const res = await fetch(endpoint, { signal: AbortSignal.timeout(timeoutMs) });
+      if (!res.ok) throw new Error(`API ${res.status}: ${endpoint}`);
+      return res.json();
+    } catch (e: any) {
+      if (attempt < RETRIES - 1) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw e; // last attempt
+    }
+  }
 }
 
 async function gatewayPost(urlPath: string, body: any): Promise<any> {
@@ -488,11 +500,12 @@ async function walletWorker(
 ): Promise<{ sent: number; errors: number }> {
   const { wallet, forwarderAddress, shard, callTypes, workerId } = config;
   const signer = new UserSigner(UserSecretKey.fromString(wallet.privateKey));
-  
-  let { nonce, balance: egldBal } = await getAccountInfo(wallet.address);
-  let wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
   let sent = 0;
   let errors = 0;
+
+  try {
+  let { nonce, balance: egldBal } = await getAccountInfo(wallet.address);
+  let wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
   let batchCount = 0;
   let callTypeIdx = 0;
   const BATCH_SIZE = 5;
@@ -580,6 +593,10 @@ async function walletWorker(
 
     batchCount++;
     await sleep(50); // Tiny pause between batches for fairness
+  }
+
+  } catch (e: any) {
+    log("⚠️", `W${workerId} S${shard}: Worker crashed: ${e.message?.substring(0, 100)}. Sent ${sent} before crash.`);
   }
 
   return { sent, errors };
@@ -695,9 +712,9 @@ async function main() {
     } catch {}
   }, 5000);
 
-  const results = await Promise.all(
+  const results = await Promise.allSettled(
     workerConfigs.map(wc => walletWorker(wc, windowEndMs, windowStartMs))
-  );
+  ).then(settled => settled.map(r => r.status === 'fulfilled' ? r.value : { sent: 0, errors: 1 }));
 
   clearInterval(statsTimer);
 
