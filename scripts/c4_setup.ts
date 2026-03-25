@@ -155,11 +155,11 @@ async function stepFund() {
   log("💰", `GL: ${(Number(balance) / 1e18).toFixed(4)} EGLD, nonce=${nonce}`);
 
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
-  const amountEach = BigInt(15e18); // 15 EGLD each
+  const amountEach = BigInt(2e18); // 2 EGLD each (for gas fees)
 
   for (let i = 0; i < wallets.length; i++) {
     const w = wallets[i];
-    log("📤", `Funding Shard ${w.shard}: ${w.address} with 15 EGLD...`);
+    log("📤", `Funding Shard ${w.shard}: ${w.address} with 2 EGLD...`);
     const hash = await signAndSend(glSigner, glAddr, w.address, nonce + i, amountEach, BigInt(50_000), "");
     log("✅", `TX: ${hash}`);
   }
