@@ -89,6 +89,31 @@
     .mini-stat .ms-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
     .mini-stat .ms-val { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 900; }
 
+    /* Observer Grid */
+    .obs-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .obs-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; position: relative; }
+    .obs-card.synced { border-color: var(--green); }
+    .obs-card.syncing { border-color: var(--orange); }
+    .obs-name { font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; }
+    .obs-status { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
+    .obs-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .obs-dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .obs-dot.orange { background: var(--orange); box-shadow: 0 0 8px var(--orange); animation: pulse 1s infinite; }
+    .obs-dot.red { background: var(--red); }
+
+    /* TX Flow Animation */
+    .tx-flow-container { position: relative; height: 60px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+    .tx-flow-track { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--border), transparent); transform: translateY(-50%); }
+    .tx-flow-labels { display: flex; justify-content: space-between; align-items: center; height: 100%; padding: 0 20px; position: relative; z-index: 2; }
+    .tx-flow-node { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; font-size: 0.7rem; font-weight: 700; }
+    .tx-flow-node.active { border-color: var(--green); box-shadow: 0 0 10px rgba(0,230,118,0.3); }
+    .tx-particle { position: absolute; width: 6px; height: 6px; border-radius: 50%; top: 50%; transform: translateY(-50%); z-index: 1; animation: txMove 2s linear infinite; }
+    @keyframes txMove { 0% { left: 8%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: 92%; opacity: 0; } }
+    .tx-particle.p1 { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .tx-particle.p2 { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .tx-particle.p3 { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+    .tx-counter-overlay { position: absolute; top: 4px; right: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--green); z-index: 3; }
+
     /* Links */
     .links-bar { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .link-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 16px; color: var(--text); text-decoration: none; font-size: 0.8rem; font-weight: 600; transition: all 0.3s; }
@@ -103,11 +128,13 @@
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .pulsing { animation: pulse 1.5s infinite; }
+    @keyframes glow { 0%, 100% { box-shadow: 0 0 5px var(--accent); } 50% { box-shadow: 0 0 25px var(--accent), 0 0 50px rgba(0,212,255,0.3); } }
+    .glowing { animation: glow 2s ease-in-out infinite; }
 
     .footer { text-align: center; padding: 20px; font-size: 0.75rem; color: var(--muted); }
     .footer a { color: var(--accent); text-decoration: none; }
 
-    @media (max-width: 900px) { .shard-grid { grid-template-columns: 1fr; } .call-grid { grid-template-columns: repeat(2, 1fr); } .stats-bar { grid-template-columns: repeat(3, 1fr); } .how-flow { flex-direction: column; } .flow-arrow { transform: rotate(90deg); } }
+    @media (max-width: 900px) { .shard-grid { grid-template-columns: 1fr; } .call-grid { grid-template-columns: repeat(2, 1fr); } .stats-bar { grid-template-columns: repeat(3, 1fr); } .how-flow { flex-direction: column; } .flow-arrow { transform: rotate(90deg); } .obs-grid { grid-template-columns: repeat(2, 1fr); } }
   </style>
 </head>
 <body>
@@ -139,6 +166,32 @@
         <div class="flow-step"><div class="flow-icon">🏦</div><div class="flow-label">DEX (Exchange)</div></div>
         <div class="flow-arrow">→</div>
         <div class="flow-step"><div class="flow-icon">💰</div><div class="flow-label">WEGLD → USDC</div></div>
+      </div>
+    </div>
+
+    <!-- Observer Nodes -->
+    <div class="section-title">📡 Observer Node Squad</div>
+    <div class="section-hint">
+      These are our <strong>private blockchain nodes</strong>. They let us submit transactions directly, bypassing the public gateway.
+      <strong>Green = synced and ready</strong>. Orange = still syncing. They must be synced before the challenge.
+    </div>
+    <div class="obs-grid" id="obsGrid">
+      <div class="obs-card syncing" id="obs0"><div class="obs-name"><span class="obs-dot orange"></span>Shard 0</div><div class="obs-status" id="obs0s">Checking...</div></div>
+      <div class="obs-card syncing" id="obs1"><div class="obs-name"><span class="obs-dot orange"></span>Shard 1</div><div class="obs-status" id="obs1s">Checking...</div></div>
+      <div class="obs-card syncing" id="obs2"><div class="obs-name"><span class="obs-dot orange"></span>Shard 2</div><div class="obs-status" id="obs2s">Checking...</div></div>
+      <div class="obs-card syncing" id="obsMeta"><div class="obs-name"><span class="obs-dot orange"></span>Metachain</div><div class="obs-status" id="obsMs">Checking...</div></div>
+    </div>
+
+    <!-- Live TX Flow -->
+    <div class="section-title">⚡ Live Transaction Flow</div>
+    <div class="tx-flow-container" id="txFlowBox">
+      <div class="tx-flow-track"></div>
+      <div class="tx-counter-overlay" id="txFlowCounter">0 tx flying</div>
+      <div class="tx-flow-labels">
+        <div class="tx-flow-node">👛 Wallets</div>
+        <div class="tx-flow-node">📦 Forwarders</div>
+        <div class="tx-flow-node">🏦 DEX</div>
+        <div class="tx-flow-node">💰 USDC</div>
       </div>
     </div>
 
@@ -331,6 +384,55 @@
       } catch { return 0; }
     }
 
+    const OBS_HOST = window.location.hostname;
+    const OBS_PORT = 8079;
+    const OBS_SHARDS = [{id:0,el:'obs0',st:'obs0s'},{id:1,el:'obs1',st:'obs1s'},{id:2,el:'obs2',st:'obs2s'},{id:4294967295,el:'obsMeta',st:'obsMs'}];
+
+    async function pollObservers() {
+      for (const s of OBS_SHARDS) {
+        try {
+          const r = await fetch(`http://${OBS_HOST}:${OBS_PORT}/network/status/${s.id}`, {signal: AbortSignal.timeout(3000)});
+          if (!r.ok) throw new Error('not ok');
+          const d = await r.json();
+          const st = d?.data?.status;
+          const synced = st?.erd_synchronized || false;
+          const nonce = st?.erd_nonce || 0;
+          const round = st?.erd_current_round || 0;
+          const card = document.getElementById(s.el);
+          const label = document.getElementById(s.st);
+          if (synced) {
+            card.className = 'obs-card synced';
+            card.querySelector('.obs-dot').className = 'obs-dot green';
+            label.innerHTML = `Nonce: ${nonce.toLocaleString()}<br>✅ SYNCED`;
+          } else {
+            const pct = round > 0 ? ((nonce/round)*100).toFixed(1) : '0';
+            card.className = 'obs-card syncing';
+            card.querySelector('.obs-dot').className = 'obs-dot orange';
+            label.innerHTML = `${nonce.toLocaleString()} / ${round.toLocaleString()}<br>⏳ ${pct}% synced`;
+          }
+        } catch {
+          const card = document.getElementById(s.el);
+          card.querySelector('.obs-dot').className = 'obs-dot red';
+          document.getElementById(s.st).innerHTML = '❌ Unreachable';
+        }
+      }
+    }
+
+    // Animated TX particles
+    let txParticleCount = 0;
+    function spawnParticle() {
+      const box = document.getElementById('txFlowBox');
+      const p = document.createElement('div');
+      const colors = ['p1','p2','p3'];
+      p.className = `tx-particle ${colors[Math.floor(Math.random()*3)]}`;
+      p.style.animationDuration = (1.5 + Math.random()*1.5) + 's';
+      p.style.top = (35 + Math.random()*30) + '%';
+      box.appendChild(p);
+      txParticleCount++;
+      document.getElementById('txFlowCounter').textContent = `${txParticleCount} tx flying`;
+      setTimeout(() => { p.remove(); txParticleCount--; document.getElementById('txFlowCounter').textContent = txParticleCount > 0 ? `${txParticleCount} tx flying` : 'Waiting...'; }, parseFloat(p.style.animationDuration)*1000);
+    }
+
     let prevTotalTx = 0, prevTime = Date.now();
     async function pollAll() {
       const gl = await fetchBal(GL_ADDR);
@@ -360,14 +462,26 @@
 
       let totalTx = 0;
       for (const w of WALLETS) {
-        try { const c = await (await fetch(`${API}/accounts/${w.address}/transactions/count`)).json(); totalTx += (typeof c === 'number') ? c : 0; } catch {}
+        try {
+          const r = await fetch(`${API}/accounts/${w.address}/transactions/count`);
+          if (r.ok) { const c = await r.json(); totalTx += (typeof c === 'number') ? c : 0; }
+        } catch {}
       }
       document.getElementById('totalCalls').textContent = totalTx.toLocaleString();
 
+      // Spawn particles based on new TX
       const now = Date.now();
       const elapsed = (now - prevTime) / 60000;
+      const newTx = totalTx - prevTotalTx;
+      if (newTx > 0) {
+        const burst = Math.min(newTx, 20);
+        for (let i = 0; i < burst; i++) setTimeout(() => spawnParticle(), i * 100);
+        addLog('success', `+${newTx} new calls detected!`);
+        // Make flow nodes glow
+        document.querySelectorAll('.tx-flow-node').forEach(n => { n.classList.add('active'); setTimeout(() => n.classList.remove('active'), 3000); });
+      }
       if (elapsed > 0 && prevTotalTx > 0) {
-        const cpm = Math.round((totalTx - prevTotalTx) / elapsed);
+        const cpm = Math.round(newTx / elapsed);
         document.getElementById('callsPerMin').textContent = cpm > 0 ? cpm : '—';
       }
       prevTotalTx = totalTx; prevTime = now;
@@ -390,6 +504,8 @@
     updateClock();
     pollAll();
     setInterval(pollAll, 15000);
+    pollObservers();
+    setInterval(pollObservers, 30000);
   </script>
 </body>
 </html>
