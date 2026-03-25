@@ -50,9 +50,38 @@ function runSetup(step: string): void {
 async function main() {
   console.log("\n" + "█".repeat(60));
   console.log("█  🚀 C4 AUTO-LAUNCH — FULLY AUTOMATED");
-  console.log("█  Fund → Wrap → Status → PRE-SIGN → BLAST → SUSTAINED");
+  console.log("█  Health → Fund → Wrap → Status → PRE-SIGN → BLAST → SUSTAINED");
   console.log("█  💚 OpenHeart Guild — NOW OR NEVER 💚");
   console.log("█".repeat(60) + "\n");
+
+  // ═════════════════════════════════════
+  //  PHASE 0: Observer & Gateway Health Check
+  // ═════════════════════════════════════
+  log("🏥", "HEALTH CHECK — Testing all gateway endpoints...");
+  const endpoints = [
+    { name: "Observer (localhost)", url: "http://localhost:8079/network/status/0" },
+    { name: "Kepler Gateway", url: "https://bon-kepler-api.projectx.mx/gateway/network/status/0" },
+    { name: "Public Gateway", url: "https://gateway.battleofnodes.com/network/status/0" },
+    { name: "Public API", url: "https://api.battleofnodes.com/stats" },
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const start = Date.now();
+      const r = await fetch(ep.url, { signal: AbortSignal.timeout(5000) });
+      const latency = Date.now() - start;
+      if (r.ok) {
+        const d = await r.json() as any;
+        const nonce = d?.data?.status?.erd_current_round || d?.roundsPerEpoch || "?";
+        log("✅", `${ep.name}: OK (${latency}ms) round=${nonce}`);
+      } else {
+        log("⚠️", `${ep.name}: HTTP ${r.status} (${latency}ms)`);
+      }
+    } catch (e: any) {
+      log("❌", `${ep.name}: UNREACHABLE — ${e.message?.substring(0, 40)}`);
+    }
+  }
+  log("🏥", "Health check complete.\n");
 
   // ═════════════════════════════════════
   //  PHASE 1: Ensure fleet wallets exist
