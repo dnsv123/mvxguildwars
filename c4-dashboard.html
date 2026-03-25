@@ -93,12 +93,12 @@
     .obs-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
     .obs-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; position: relative; }
     .obs-card.synced { border-color: var(--green); }
-    .obs-card.syncing { border-color: var(--orange); }
+    .obs-card.syncing { border-color: #4fc3f7; }
     .obs-name { font-size: 0.75rem; font-weight: 700; margin-bottom: 6px; }
     .obs-status { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
     .obs-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
     .obs-dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
-    .obs-dot.orange { background: var(--orange); box-shadow: 0 0 8px var(--orange); animation: pulse 1s infinite; }
+    .obs-dot.blue { background: #4fc3f7; box-shadow: 0 0 8px #4fc3f7; animation: pulse 1.5s infinite; }
     .obs-dot.red { background: var(--red); }
 
     /* TX Flow Animation */
@@ -173,13 +173,13 @@
     <div class="section-title">📡 Observer Node Squad</div>
     <div class="section-hint">
       These are our <strong>private blockchain nodes</strong>. They let us submit transactions directly, bypassing the public gateway.
-      <strong>Green = synced and ready</strong>. Orange = still syncing. They must be synced before the challenge.
+      <strong>Green = synced and ready</strong>. Blue = still syncing. They must be synced before the challenge.
     </div>
     <div class="obs-grid" id="obsGrid">
-      <div class="obs-card syncing" id="obs0"><div class="obs-name"><span class="obs-dot orange"></span>Shard 0</div><div class="obs-status" id="obs0s">Checking...</div></div>
-      <div class="obs-card syncing" id="obs1"><div class="obs-name"><span class="obs-dot orange"></span>Shard 1</div><div class="obs-status" id="obs1s">Checking...</div></div>
-      <div class="obs-card syncing" id="obs2"><div class="obs-name"><span class="obs-dot orange"></span>Shard 2</div><div class="obs-status" id="obs2s">Checking...</div></div>
-      <div class="obs-card syncing" id="obsMeta"><div class="obs-name"><span class="obs-dot orange"></span>Metachain</div><div class="obs-status" id="obsMs">Checking...</div></div>
+      <div class="obs-card syncing" id="obs0"><div class="obs-name"><span class="obs-dot blue"></span>Shard 0</div><div class="obs-status" id="obs0s">Checking...</div></div>
+      <div class="obs-card syncing" id="obs1"><div class="obs-name"><span class="obs-dot blue"></span>Shard 1</div><div class="obs-status" id="obs1s">Checking...</div></div>
+      <div class="obs-card syncing" id="obs2"><div class="obs-name"><span class="obs-dot blue"></span>Shard 2</div><div class="obs-status" id="obs2s">Checking...</div></div>
+      <div class="obs-card syncing" id="obsMeta"><div class="obs-name"><span class="obs-dot blue"></span>Metachain</div><div class="obs-status" id="obsMs">Checking...</div></div>
     </div>
 
     <!-- Live TX Flow -->
@@ -407,7 +407,7 @@
           } else {
             const pct = round > 0 ? ((nonce/round)*100).toFixed(1) : '0';
             card.className = 'obs-card syncing';
-            card.querySelector('.obs-dot').className = 'obs-dot orange';
+            card.querySelector('.obs-dot').className = 'obs-dot blue';
             label.innerHTML = `${nonce.toLocaleString()} / ${round.toLocaleString()}<br>⏳ ${pct}% synced`;
           }
         } catch {

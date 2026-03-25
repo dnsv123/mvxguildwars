@@ -236,10 +236,9 @@ async function signAndSerializeSC(
 //  GAS TAPERING
 // ═══════════════════════════════════════════════════════════════
 const GAS_TAPER = [
-  { minFrom: 0,  minTo: 5,  multiplier: BigInt(5) },
-  { minFrom: 5,  minTo: 15, multiplier: BigInt(3) },
-  { minFrom: 15, minTo: 30, multiplier: BigInt(2) },
-  { minFrom: 30, minTo: 99, multiplier: BigInt(1) },
+  { minFrom: 0,  minTo: 5,  multiplier: BigInt(2) },
+  { minFrom: 5,  minTo: 20, multiplier: BigInt(1) },
+  { minFrom: 20, minTo: 99, multiplier: BigInt(1) },
 ];
 
 function getGasPrice(windowStartMs: number): bigint {
@@ -300,8 +299,10 @@ async function forwarderWorker(
     try {
       const ok = await sendTxBatchRaw(batch);
       sent += ok;
+      totalSent += ok;
     } catch {
       errors++;
+      totalErrors++;
       failoverEndpoint();
     }
 
@@ -481,8 +482,6 @@ async function main() {
   log("📊", "CONTRACT STORM SUMMARY");
   results.forEach((r, i) => {
     log("📡", `Shard ${FORWARDERS[i].shard} (${FORWARDERS[i].callType}): ${r.sent} sent, ${r.errors} errors`);
-    totalSent += r.sent;
-    totalErrors += r.errors;
   });
   const elapsed = ((Date.now() - windowStartMs) / 1000).toFixed(1);
   console.log(`\n   TOTAL: ${totalSent} tx in ${elapsed}s (${Math.round(totalSent / parseFloat(elapsed))} tx/s)`);
