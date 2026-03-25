@@ -178,19 +178,30 @@ async function getAccountInfo(addr: string): Promise<{ balance: bigint; nonce: n
 }
 
 async function getTokenBalance(addr: string, token: string): Promise<bigint> {
+  // Use GATEWAY (not API) — the BoN API indexer has lag for ESDT balances
+  // Gateway queries blockchain state directly = always accurate
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      // Use bulk /tokens endpoint to avoid per-token 404/rate-limit issues
-      const tokens: any[] = await apiGet(`${API_URL}/accounts/${addr}/tokens`);
-      for (const t of tokens) {
-        if (t.identifier === token) return BigInt(t.balance || "0");
-      }
+      const url = `${getEndpoint()}/address/${addr}/esdt/${token}`;
+      const headers: any = { "Content-Type": "application/json" };
+      if (KEPLER_KEY && getEndpoint().includes("kepler")) headers["api-key"] = KEPLER_KEY;
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+      if (!res.ok) { await sleep(300); continue; }
+      const d = await res.json();
+      const bal = d?.data?.tokenData?.balance;
+      if (bal) return BigInt(bal);
       return BigInt(0);
     } catch {
       await sleep(500);
     }
   }
-  return BigInt(0);
+  // Fallback to API
+  try {
+    const d = await apiGet(`${API_URL}/accounts/${addr}/tokens/${token}`);
+    return BigInt(d.balance || "0");
+  } catch {
+    return BigInt(0);
+  }
 }
 
 async function sendTxRaw(txJson: any): Promise<string> {

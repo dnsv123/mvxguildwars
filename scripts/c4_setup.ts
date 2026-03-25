@@ -66,9 +66,19 @@ async function acctInfo(addr: string) {
 }
 
 async function tokenBal(addr: string, tok: string) {
+  // Use GATEWAY for accurate real-time ESDT balance (BoN API indexer has lag)
   for (let attempt = 0; attempt < 3; attempt++) {
-    try { return BigInt((await apiGet(`${API_URL}/accounts/${addr}/tokens/${tok}`)).balance || "0"); }
-    catch { await sleep(500); }
+    try {
+      const url = `${getEP()}/address/${addr}/esdt/${tok}`;
+      const headers: any = { "Content-Type": "application/json" };
+      if (KEPLER_KEY && getEP().includes("kepler")) headers["api-key"] = KEPLER_KEY;
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+      if (!res.ok) { await sleep(300); continue; }
+      const d: any = await res.json();
+      const bal = d?.data?.tokenData?.balance;
+      if (bal) return BigInt(bal);
+      return BigInt(0);
+    } catch { await sleep(500); }
   }
   return BigInt(0);
 }
@@ -207,14 +217,8 @@ async function stepWrap() {
   await sleep(15000);
 
   for (const w of wallets) {
-    // Use bulk tokens endpoint
-    let wegld = BigInt(0);
-    try {
-      const tokens: any[] = await apiGet(`${API_URL}/accounts/${w.address}/tokens`) as any[];
-      for (const t of tokens) {
-        if (t.identifier === WEGLD_TOKEN) wegld = BigInt(t.balance || "0");
-      }
-    } catch {}
+    // Use gateway for accurate ESDT balance
+    const wegld = await tokenBal(w.address, WEGLD_TOKEN);
     log("💰", `Shard ${w.shard}: ${(Number(wegld) / 1e18).toFixed(4)} WEGLD`);
     await sleep(300);
   }
@@ -230,15 +234,8 @@ async function stepStatus() {
     for (const w of wallets) {
       const { balance } = await acctInfo(w.address);
       await sleep(300);
-      // Use /tokens to get ALL tokens at once (avoids rate-limiting per-token queries)
-      let wegld = BigInt(0), usdc = BigInt(0);
-      try {
-        const tokens: any[] = await apiGet(`${API_URL}/accounts/${w.address}/tokens`);
-        for (const t of tokens) {
-          if (t.identifier === WEGLD_TOKEN) wegld = BigInt(t.balance || "0");
-          if (t.identifier === USDC_TOKEN) usdc = BigInt(t.balance || "0");
-        }
-      } catch {}
+      const wegld = await tokenBal(w.address, WEGLD_TOKEN);
+      const usdc = await tokenBal(w.address, USDC_TOKEN);
       await sleep(300);
       log("💰", `S${w.shard} ${w.address.substring(0,20)}... | EGLD: ${(Number(balance)/1e18).toFixed(4)} | WEGLD: ${(Number(wegld)/1e18).toFixed(4)} | USDC: ${(Number(usdc)/1e6).toFixed(2)}`);
     }
@@ -248,14 +245,8 @@ async function stepStatus() {
     log("📋", "=== FORWARDER STATUS ===");
     const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
     for (const f of fwds) {
-      let wegld = BigInt(0), usdc = BigInt(0);
-      try {
-        const tokens: any[] = await apiGet(`${API_URL}/accounts/${f.forwarderAddress}/tokens`);
-        for (const t of tokens) {
-          if (t.identifier === WEGLD_TOKEN) wegld = BigInt(t.balance || "0");
-          if (t.identifier === USDC_TOKEN) usdc = BigInt(t.balance || "0");
-        }
-      } catch {}
+      const wegld = await tokenBal(f.forwarderAddress, WEGLD_TOKEN);
+      const usdc = await tokenBal(f.forwarderAddress, USDC_TOKEN);
       await sleep(300);
       log("📦", `S${f.shard} ${f.forwarderAddress.substring(0,20)}... | ${f.callType} | WEGLD: ${(Number(wegld)/1e18).toFixed(4)} | USDC: ${(Number(usdc)/1e6).toFixed(2)}`);
     }
