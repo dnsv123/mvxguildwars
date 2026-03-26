@@ -600,9 +600,6 @@ async function stepCorrectFunding() {
 //  FIX PAYABLE: Upgrade contracts to add payable-by-sc flag
 // ═══════════════════════════════════════════════════════════════
 async function stepFixPayable() {
-  const glHex = process.env.GL_PRIVATE_KEY!;
-  const glSigner = new UserSigner(UserSecretKey.fromString(glHex));
-  const glAddr = glSigner.getAddress().bech32();
   const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
 
   // Fetch current contract code from first forwarder
@@ -614,16 +611,18 @@ async function stepFixPayable() {
 
   // Metadata: 0506 = Upgradeable(01)+Readable(04) | Payable(02)+PayableBySC(04)
   const metadata = "0506";
-  const { nonce: glNonce } = await acctInfo(glAddr);
-  log("🔧", `GL nonce: ${glNonce}, upgrading ${fwds.length} forwarders...`);
 
   for (let i = 0; i < fwds.length; i++) {
     const f = fwds[i];
+    // The WALLET is the contract owner/deployer — must sign upgrade
+    const walletSigner = new UserSigner(UserSecretKey.fromString(f.wallet.privateKey));
+    const walletAddr = f.wallet.address;
+    const { nonce } = await acctInfo(walletAddr);
     const data = `upgradeContract@${codeHex}@${metadata}`;
     const gasLimit = BigInt(200_000_000);
     try {
-      const txHash = await signAndSend(glSigner, glAddr, f.forwarderAddress, glNonce + i, BigInt(0), gasLimit, data);
-      log("✅", `Upgraded S${f.shard} ${f.forwarderAddress.substring(0,20)}... TX: ${txHash}`);
+      const txHash = await signAndSend(walletSigner, walletAddr, f.forwarderAddress, nonce, BigInt(0), gasLimit, data);
+      log("✅", `Upgraded S${f.shard} TX: ${txHash}`);
     } catch (e: any) {
       log("❌", `Upgrade S${f.shard} failed: ${e.message?.substring(0,100)}`);
     }
