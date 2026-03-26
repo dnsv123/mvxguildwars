@@ -60,7 +60,6 @@ async function main() {
   log("🏥", "HEALTH CHECK — Testing all gateway endpoints...");
   const endpoints = [
     { name: "Observer (localhost)", url: "http://localhost:8079/network/status/0" },
-    { name: "Kepler Gateway", url: "https://bon-kepler-api.projectx.mx/gateway/network/status/0" },
     { name: "Public Gateway", url: "https://gateway.battleofnodes.com/network/status/0" },
     { name: "Public API", url: "https://api.battleofnodes.com/stats" },
   ];
@@ -103,7 +102,43 @@ async function main() {
   log("📋", `Fleet: ${wallets.length} wallets loaded`);
 
   // ═════════════════════════════════════
-  //  PHASE 2: Fund wallets (if needed)
+  //  PHASE 1.5: Wait for EGLD arrival in GL wallet
+  //  Polls GL balance every 30s until >= MIN_GL_BALANCE
+  // ═════════════════════════════════════
+  const MIN_GL_BALANCE = 300; // Need at least 300 EGLD to fund fleet (competition gives 500)
+  const glKey = process.env.GL_PRIVATE_KEY;
+  let glAddr = "";
+  if (glKey) {
+    // Derive GL address from private key
+    const { UserSecretKey: USK, UserSigner: US } = require("@multiversx/sdk-wallet");
+    const glSigner = new US(USK.fromString(glKey));
+    glAddr = glSigner.getAddress().bech32();
+  }
+
+  if (glAddr) {
+    log("👀", `Monitoring GL wallet: ${glAddr.substring(0,20)}...`);
+    while (true) {
+      try {
+        const r = await fetch(`https://api.battleofnodes.com/accounts/${glAddr}`, { signal: AbortSignal.timeout(5000) });
+        if (r.ok) {
+          const d: any = await r.json();
+          const egld = Number(BigInt(d.balance || "0")) / 1e18;
+          if (egld >= MIN_GL_BALANCE) {
+            log("🎉", `GL has ${egld.toFixed(2)} EGLD — ENOUGH! Starting fund+wrap...`);
+            break;
+          } else {
+            log("⏳", `GL: ${egld.toFixed(2)} EGLD — waiting for ${MIN_GL_BALANCE}+ EGLD (checking every 30s)...`);
+          }
+        }
+      } catch (e: any) {
+        log("⚠️", `GL balance check failed: ${e.message?.substring(0, 40)}`);
+      }
+      await sleep(30000);
+    }
+  }
+
+  // ═════════════════════════════════════
+  //  PHASE 2: Fund wallets
   // ═════════════════════════════════════
   log("💰", "Checking if wallets need funding...");
   // Quick check: sample 3 wallets
