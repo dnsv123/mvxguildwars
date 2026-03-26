@@ -1,7 +1,6 @@
 /**
- * 🔥 EMERGENCY BLASTER v2 — Local nonce tracking (no API per-TX)
- * Fetches nonce ONCE per wallet, then increments locally.
- * Re-syncs only on error.
+ * 🔥 DEPLOYER BLASTER — Uses ONLY the 3 deployer wallets that PRODUCE CALLS
+ * Local nonce tracking. Rapid fire. No API per TX.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -60,6 +59,14 @@ async function sendTx(
 }
 
 async function getNonce(addr: string): Promise<number> {
+  // Try gateway first (most accurate), fallback to API
+  try {
+    const r = await fetch(`${GW}/address/${addr}`, { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const d: any = await r.json();
+      return d?.data?.account?.nonce || 0;
+    }
+  } catch {}
   const r = await fetch(`${API}/accounts/${addr}`, { signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`API ${r.status}`);
   const d: any = await r.json();
@@ -79,92 +86,68 @@ function buildSwapData(callType: string): string {
   ].join("@");
 }
 
-const CALL_TYPES_ASYNC = ["blindAsyncV1", "blindAsyncV2"];
-const CALL_TYPES_ALL = ["blindAsyncV1", "blindAsyncV2", "blindSync", "blindTransfExec"];
+const CALL_TYPES_S1 = ["blindAsyncV1", "blindAsyncV2", "blindSync", "blindTransfExec"];
+const CALL_TYPES_OTHER = ["blindAsyncV1", "blindAsyncV2"];
 
-function getWalletShard(bech32: string): number {
-  const pk = new Address(bech32).getPublicKey();
-  const last = pk[pk.length - 1];
-  let shard = last % 4;
-  if (shard === 3) shard = last % 2;
-  return shard;
+async function deployerWorker(
+  walletAddr: string, walletKey: string, forwarderAddr: string, shard: number,
+  stats: { sent: number; errors: number; }
+): Promise<void> {
+  const signer = new UserSigner(UserSecretKey.fromString(walletKey));
+  let nonce = await getNonce(walletAddr);
+  const types = shard === 1 ? CALL_TYPES_S1 : CALL_TYPES_OTHER;
+  let callIdx = 0;
+
+  log("🔥", `S${shard} deployer ${walletAddr.substring(0,20)}... nonce=${nonce}`);
+
+  while (Date.now() < WINDOW_END) {
+    const callType = types[callIdx % types.length];
+    callIdx++;
+    const data = buildSwapData(callType);
+
+    try {
+      await sendTx(signer, walletAddr, forwarderAddr, nonce, BigInt(0), GAS_LIMIT, data);
+      nonce++; // LOCAL increment
+      stats.sent++;
+    } catch (e: any) {
+      stats.errors++;
+      if (stats.errors <= 5) log("❌", `S${shard}: ${e.message?.substring(0, 80)}`);
+      // Re-sync nonce on error
+      await sleep(1000);
+      try { nonce = await getNonce(walletAddr); } catch {}
+    }
+
+    // Tiny pause to not hammer gateway — 50ms = ~20 tx/s per worker
+    await sleep(50);
+  }
 }
 
 async function main() {
   const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
-  const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
 
-  const shardForwarder: Record<number, string> = {};
-  for (const f of fwds) shardForwarder[f.shard] = f.forwarderAddress;
+  log("🚀", `DEPLOYER BLASTER: ${fwds.length} deployer wallets (PROVEN TO PRODUCE CALLS)`);
+  log("🚀", `Window ends: ${new Date(WINDOW_END).toISOString()}`);
 
-  interface Worker { address: string; shard: number; signer: UserSigner; nonce: number; alive: boolean; }
-  const fleet: Worker[] = wallets.map((w: any) => ({
-    address: w.address,
-    shard: getWalletShard(w.address),
-    signer: new UserSigner(UserSecretKey.fromString(w.privateKey)),
-    nonce: -1, // will be fetched
-    alive: true,
-  }));
-
-  // Fetch initial nonces — staggered to avoid API overload
-  log("🔄", "Fetching initial nonces...");
-  const BATCH = 10;
-  for (let i = 0; i < fleet.length; i += BATCH) {
-    const batch = fleet.slice(i, i + BATCH);
-    await Promise.all(batch.map(async (w) => {
-      try {
-        w.nonce = await getNonce(w.address);
-      } catch { w.alive = false; }
-    }));
-    await sleep(200);
-  }
-  const aliveCount = fleet.filter(w => w.alive).length;
-  log("✅", `Nonces loaded: ${aliveCount}/${fleet.length} wallets ready`);
-
-  let totalSent = 0;
-  let totalErrors = 0;
-  let round = 0;
+  const stats = { sent: 0, errors: 0 };
   const startTime = Date.now();
 
-  while (Date.now() < WINDOW_END) {
-    round++;
-    const alive = fleet.filter(w => w.alive);
-    if (alive.length === 0) { log("🛑", "All wallets dead!"); break; }
-
-    // Send 1 TX per alive wallet, 15 at a time to avoid gateway overload
-    const CONCURRENCY = 15;
-    for (let i = 0; i < alive.length; i += CONCURRENCY) {
-      const chunk = alive.slice(i, i + CONCURRENCY);
-      await Promise.all(chunk.map(async (w) => {
-        const forwarder = shardForwarder[w.shard];
-        if (!forwarder) return;
-
-        const types = (w.shard === 1) ? CALL_TYPES_ALL : CALL_TYPES_ASYNC;
-        const callType = types[round % types.length];
-        const data = buildSwapData(callType);
-
-        try {
-          await sendTx(w.signer, w.address, forwarder, w.nonce, BigInt(0), GAS_LIMIT, data);
-          w.nonce++; // LOCAL increment — no API needed!
-          totalSent++;
-        } catch (e: any) {
-          totalErrors++;
-          // Try to re-sync nonce on error
-          try { w.nonce = await getNonce(w.address); } catch { w.alive = false; }
-        }
-      }));
-    }
-
+  // Status logger
+  const statusInterval = setInterval(() => {
     const elapsed = (Date.now() - startTime) / 1000;
     const remaining = Math.floor((WINDOW_END - Date.now()) / 1000);
-    if (round % 5 === 0 || round <= 3) {
-      log("📊", `R${round}: ${totalSent} sent | ${totalErrors} err | ${(totalSent/elapsed).toFixed(1)} tx/s | ${remaining}s left | ${alive.length} alive`);
-    }
+    log("📊", `${stats.sent} calls | ${stats.errors} err | ${(stats.sent/elapsed).toFixed(1)} calls/s | ${remaining}s left`);
+  }, 5000);
 
-    await sleep(100); // Minimal pause between rounds
-  }
+  // Fire all 3 deployer workers in parallel
+  const workers = fwds.map((f: any) =>
+    deployerWorker(f.wallet.address, f.wallet.privateKey, f.forwarderAddress, f.shard, stats)
+  );
 
-  log("✅", `DONE! Total: ${totalSent} sent, ${totalErrors} errors in ${((Date.now()-startTime)/1000).toFixed(0)}s`);
+  await Promise.all(workers);
+  clearInterval(statusInterval);
+
+  const elapsed = (Date.now() - startTime) / 1000;
+  log("✅", `DONE! ${stats.sent} total calls, ${stats.errors} errors in ${elapsed.toFixed(0)}s (${(stats.sent/elapsed).toFixed(1)} calls/s)`);
 }
 
 main().catch(e => { console.error("❌ FATAL:", e); process.exit(1); });
