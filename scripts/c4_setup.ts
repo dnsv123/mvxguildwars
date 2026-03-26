@@ -381,6 +381,104 @@ async function stepMicroFund() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  CLEANUP: Sweep ALL tokens from wallets back to GL
+// ═══════════════════════════════════════════════════════════════
+async function stepCleanup() {
+  const glHex = process.env.GL_PRIVATE_KEY!;
+  const glSigner = new UserSigner(UserSecretKey.fromString(glHex));
+  const glAddr = glSigner.getAddress().bech32();
+  const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
+  log("🧹", `CLEANUP — Sweeping ${wallets.length} wallets back to GL`);
+
+  log("🔄", "Step 1: Unwrapping WEGLD → EGLD...");
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const wegld = await tokenBal(w.address, WEGLD_TOKEN);
+    if (wegld > BigInt(0)) {
+      const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
+      const { nonce } = await acctInfo(w.address);
+      const hexAmt = wegld.toString(16).length % 2 ? '0' + wegld.toString(16) : wegld.toString(16);
+      const data = `ESDTTransfer@${Buffer.from(WEGLD_TOKEN).toString('hex')}@${hexAmt}@${Buffer.from('unwrapEgld').toString('hex')}`;
+      try {
+        await signAndSend(signer, w.address, WRAP_SC, nonce, BigInt(0), BigInt(5_000_000), data);
+        if (i % 10 === 0) log("🔄", `Unwrapped ${(Number(wegld)/1e18).toFixed(4)} WEGLD wallet ${i+1}`);
+      } catch (e: any) { log("⚠️", `Unwrap fail ${i}: ${e.message?.substring(0,50)}`); }
+    }
+    if (i % 5 === 4) await sleep(500);
+  }
+  log("⏳", "Waiting 20s for unwrap...");
+  await sleep(20000);
+
+  log("💸", "Step 2: Sending EGLD back to GL...");
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const { balance, nonce } = await acctInfo(w.address);
+    const fee = BigInt(50_000) * GAS_PRICE;
+    const toSend = balance - fee - fee;
+    if (toSend > BigInt(0)) {
+      const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
+      try {
+        await signAndSend(signer, w.address, glAddr, nonce, toSend, BigInt(50_000), "");
+        if (i % 10 === 0) log("💸", `Recovered ${(Number(toSend)/1e18).toFixed(4)} EGLD wallet ${i+1}`);
+      } catch (e: any) { log("⚠️", `Recover fail ${i}: ${e.message?.substring(0,50)}`); }
+    }
+    if (i % 5 === 4) await sleep(300);
+  }
+  log("⏳", "Waiting 30s...");
+  await sleep(30000);
+  const { balance: glBal } = await acctInfo(glAddr);
+  log("✅", `CLEANUP DONE! GL: ${(Number(glBal)/1e18).toFixed(4)} EGLD`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FIX-DRAIN: Fund drain wallets, drain forwarders
+// ═══════════════════════════════════════════════════════════════
+async function stepFixDrain() {
+  const glHex = process.env.GL_PRIVATE_KEY!;
+  const glSigner = new UserSigner(UserSecretKey.fromString(glHex));
+  const glAddr = glSigner.getAddress().bech32();
+  if (!fs.existsSync(path.join(__dirname, "..", "c4_forwarders.json"))) { log("❌", "No forwarders!"); return; }
+  const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
+
+  const { nonce: glNonce } = await acctInfo(glAddr);
+  const DRAIN_FUND = BigInt(100_000_000_000_000_000); // 0.1 EGLD
+  for (let i = 0; i < fwds.length; i++) {
+    const f = fwds[i];
+    const { balance } = await acctInfo(f.wallet.address);
+    if (balance < BigInt(50_000_000_000_000_000)) {
+      await signAndSend(glSigner, glAddr, f.wallet.address, glNonce + i, DRAIN_FUND, BigInt(50_000), "");
+      log("💸", `Funded S${f.shard} drain wallet 0.1 EGLD`);
+    }
+  }
+  await sleep(15000);
+
+  for (const f of fwds) {
+    const signer = new UserSigner(UserSecretKey.fromString(f.wallet.privateKey));
+    const { nonce } = await acctInfo(f.wallet.address);
+    let n = nonce;
+    for (const token of [USDC_TOKEN, WEGLD_TOKEN]) {
+      const bal = await tokenBal(f.forwarderAddress, token);
+      if (bal > BigInt(0)) {
+        const data = `drain@${Buffer.from(token).toString('hex')}@`;
+        try {
+          await signAndSend(signer, f.wallet.address, f.forwarderAddress, n, BigInt(0), BigInt(30_000_000), data);
+          log("🔄", `Drained ${token} from S${f.shard}`);
+          n++;
+        } catch (e: any) { log("⚠️", `Drain ${token} S${f.shard}: ${e.message?.substring(0,50)}`); }
+        await sleep(1000);
+      }
+    }
+  }
+  await sleep(15000);
+  for (const f of fwds) {
+    const w = await tokenBal(f.forwarderAddress, WEGLD_TOKEN);
+    const u = await tokenBal(f.forwarderAddress, USDC_TOKEN);
+    log("📦", `S${f.shard}: WEGLD=${(Number(w)/1e18).toFixed(4)} USDC=${(Number(u)/1e6).toFixed(4)}`);
+  }
+  log("✅", "FIX-DRAIN done! Run 'cleanup' next.");
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  CLI
 // ═══════════════════════════════════════════════════════════════
 async function main() {
@@ -397,8 +495,10 @@ async function main() {
     case "status":     await stepStatus(); break;
     case "test-call":  await stepTestCall(); break;
     case "micro-fund": await stepMicroFund(); break;
+    case "fix-drain":  await stepFixDrain(); break;
+    case "cleanup":    await stepCleanup(); break;
     default:
-      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund]");
+      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund|fix-drain|cleanup]");
   }
 }
 
