@@ -596,6 +596,51 @@ async function stepCorrectFunding() {
   log("✅", `CORRECT DONE! Returned ~${totalSent.toFixed(2)} EGLD. GL: ${(Number(glBal)/1e18).toFixed(4)} EGLD`);
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  FIX PAYABLE: Upgrade contracts to add payable-by-sc flag
+// ═══════════════════════════════════════════════════════════════
+async function stepFixPayable() {
+  const glHex = process.env.GL_PRIVATE_KEY!;
+  const glSigner = new UserSigner(UserSecretKey.fromString(glHex));
+  const glAddr = glSigner.getAddress().bech32();
+  const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
+
+  // Fetch current contract code from first forwarder
+  log("🔄", "Fetching contract WASM code from API...");
+  const acctData: any = await apiGet(`${API_URL}/accounts/${fwds[0].forwarderAddress}`);
+  const codeHex = acctData.code;
+  if (!codeHex || codeHex.length < 100) { log("❌", "No code found!"); return; }
+  log("✅", `Got WASM code: ${codeHex.length} hex chars`);
+
+  // Metadata: 0506 = Upgradeable(01)+Readable(04) | Payable(02)+PayableBySC(04)
+  const metadata = "0506";
+  const { nonce: glNonce } = await acctInfo(glAddr);
+  log("🔧", `GL nonce: ${glNonce}, upgrading ${fwds.length} forwarders...`);
+
+  for (let i = 0; i < fwds.length; i++) {
+    const f = fwds[i];
+    const data = `upgradeContract@${codeHex}@${metadata}`;
+    const gasLimit = BigInt(200_000_000);
+    try {
+      const txHash = await signAndSend(glSigner, glAddr, f.forwarderAddress, glNonce + i, BigInt(0), gasLimit, data);
+      log("✅", `Upgraded S${f.shard} ${f.forwarderAddress.substring(0,20)}... TX: ${txHash}`);
+    } catch (e: any) {
+      log("❌", `Upgrade S${f.shard} failed: ${e.message?.substring(0,100)}`);
+    }
+  }
+  log("⏳", "Waiting 30s for confirmations...");
+  await sleep(30000);
+
+  // Verify
+  for (const f of fwds) {
+    try {
+      const info: any = await apiGet(`${API_URL}/accounts/${f.forwarderAddress}`);
+      log(info.isPayableBySmartContract ? "✅" : "❌",
+        `S${f.shard} isPayableBySmartContract: ${info.isPayableBySmartContract}`);
+    } catch { log("⚠️", `Could not verify S${f.shard}`); }
+  }
+}
+
 async function main() {
   const step = process.argv[2] || "status";
 
@@ -613,8 +658,9 @@ async function main() {
     case "fix-drain":  await stepFixDrain(); break;
     case "cleanup":    await stepCleanup(); break;
     case "correct-funding": await stepCorrectFunding(); break;
+    case "fix-payable": await stepFixPayable(); break;
     default:
-      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund|fix-drain|cleanup|correct-funding]");
+      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund|fix-drain|cleanup|correct-funding|fix-payable]");
   }
 }
 
