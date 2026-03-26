@@ -263,22 +263,29 @@ async function getTokenBalance(addr: string, token: string): Promise<bigint> {
   }
 }
 
+let _firstGwError = true; // log first gateway error for diagnostics
+
 async function sendTxRaw(txJson: any): Promise<string> {
   const d = await gatewayPost("/transaction/send", txJson);
+  if (d?.error && d.error !== "") {
+    if (_firstGwError) { log("🚨", `GW error: ${d.error} | code: ${d.code}`); _firstGwError = false; }
+    throw new Error(`GW: ${d.error}`);
+  }
   return d?.data?.txHash || "";
 }
 
 async function sendTxBatchRaw(txJsons: any[]): Promise<number> {
-  try {
-    const d = await gatewayPost("/transaction/send-multiple", txJsons);
-    return d?.data?.numOfSentTxs || txJsons.length;
-  } catch {
-    let ok = 0;
-    for (const tx of txJsons) {
-      try { await sendTxRaw(tx); ok++; } catch {}
+  // Send individually for better error tracking
+  let ok = 0;
+  for (const tx of txJsons) {
+    try {
+      await sendTxRaw(tx);
+      ok++;
+    } catch (e: any) {
+      if (_firstGwError) { log("🚨", `TX send failed: ${e.message?.substring(0, 120)}`); _firstGwError = false; }
     }
-    return ok;
   }
+  return ok;
 }
 
 // ═══════════════════════════════════════════════════════════════
