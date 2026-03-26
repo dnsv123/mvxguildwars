@@ -14,7 +14,7 @@ const CHAIN_ID = "B";
 const GW = "https://gateway.battleofnodes.com";
 const API = process.env.API_URL || "https://api.battleofnodes.com";
 const GAS_PRICE = BigInt(1_000_000_000);
-const GAS_LIMIT = BigInt(80_000_000);
+const GAS_LIMIT = BigInt(30_000_000); // 30M — MUST match test-call! 80M drains EGLD too fast
 const txComputer = new TransactionComputer();
 
 const WEGLD_TOKEN = "WEGLD-bd4d79";
@@ -52,7 +52,10 @@ async function sendTx(
     body: JSON.stringify(json),
     signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) throw new Error(`GW ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`GW ${res.status}: ${body.substring(0, 100)}`);
+  }
   const d: any = await res.json();
   if (d.error && d.error !== "") throw new Error(`GW: ${d.error}`);
   return d?.data?.txHash || "";
