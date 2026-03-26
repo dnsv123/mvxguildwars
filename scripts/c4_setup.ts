@@ -390,6 +390,52 @@ async function stepCleanup() {
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
   log("🧹", `CLEANUP — Sweeping ${wallets.length} wallets back to GL`);
 
+  const DEX_PAIR = "erd1qqqqqqqqqqqqqpgqeel2kumf0r8ffyhth7pqdujjat9nx0862jpsg2pqaq";
+
+  // Step 0: Micro-fund wallets that have USDC but no gas
+  log("💸", "Step 0: Micro-funding wallets with USDC for gas...");
+  let glNonce = (await acctInfo(glAddr)).nonce;
+  const MICRO_GAS = BigInt(50_000_000_000_000_000); // 0.05 EGLD
+  let fundedCount = 0;
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const usdc = await tokenBal(w.address, USDC_TOKEN);
+    const { balance } = await acctInfo(w.address);
+    if (usdc > BigInt(0) && balance < BigInt(30_000_000_000_000_000)) {
+      try {
+        await signAndSend(glSigner, glAddr, w.address, glNonce, MICRO_GAS, BigInt(50_000), "");
+        glNonce++;
+        fundedCount++;
+      } catch (e: any) { log("⚠️", `Micro-fund fail ${i}: ${e.message?.substring(0,50)}`); }
+    }
+    if (i % 5 === 4) await sleep(200);
+  }
+  if (fundedCount > 0) {
+    log("💸", `Micro-funded ${fundedCount} wallets with 0.05 EGLD each`);
+    log("⏳", "Waiting 15s...");
+    await sleep(15000);
+  }
+
+  // Step 0.5: Swap USDC → WEGLD via DEX pair directly
+  log("🔄", "Step 0.5: Swapping USDC → WEGLD on DEX...");
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const usdc = await tokenBal(w.address, USDC_TOKEN);
+    if (usdc > BigInt(0)) {
+      const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
+      const { nonce } = await acctInfo(w.address);
+      const hexAmt = usdc.toString(16).length % 2 ? '0' + usdc.toString(16) : usdc.toString(16);
+      const data = `ESDTTransfer@${Buffer.from(USDC_TOKEN).toString('hex')}@${hexAmt}@${Buffer.from('swapTokensFixedInput').toString('hex')}@${Buffer.from(WEGLD_TOKEN).toString('hex')}@01`;
+      try {
+        await signAndSend(signer, w.address, DEX_PAIR, nonce, BigInt(0), BigInt(20_000_000), data);
+        if (i % 10 === 0) log("🔄", `Swapped ${(Number(usdc)/1e6).toFixed(4)} USDC → WEGLD wallet ${i+1}`);
+      } catch (e: any) { log("⚠️", `USDC swap fail ${i}: ${e.message?.substring(0,50)}`); }
+    }
+    if (i % 5 === 4) await sleep(500);
+  }
+  log("⏳", "Waiting 15s for USDC swaps...");
+  await sleep(15000);
+
   log("🔄", "Step 1: Unwrapping WEGLD → EGLD...");
   for (let i = 0; i < wallets.length; i++) {
     const w = wallets[i];
