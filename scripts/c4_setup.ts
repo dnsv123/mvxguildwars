@@ -527,6 +527,75 @@ async function stepFixDrain() {
 // ═══════════════════════════════════════════════════════════════
 //  CLI
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  CORRECT FUNDING: Return excess to GL to cap at 500 EGLD total
+// ═══════════════════════════════════════════════════════════════
+async function stepCorrectFunding() {
+  const glHex = process.env.GL_PRIVATE_KEY!;
+  const glSigner = new UserSigner(UserSecretKey.fromString(glHex));
+  const glAddr = glSigner.getAddress().bech32();
+  const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
+  const TARGET_TOTAL = 500;
+  const TARGET_PER_WALLET = (TARGET_TOTAL / wallets.length);
+  log("🔧", `CORRECT FUNDING — Capping fleet to ${TARGET_TOTAL} EGLD (${TARGET_PER_WALLET.toFixed(4)} per wallet)`);
+
+  // Step 1: Calculate excess per wallet and unwrap WEGLD
+  log("🔄", "Step 1: Unwrapping excess WEGLD...");
+  let totalReturned = 0;
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const { balance } = await acctInfo(w.address);
+    const wegld = await tokenBal(w.address, WEGLD_TOKEN);
+    const totalBal = Number(balance) / 1e18 + Number(wegld) / 1e18;
+    const excess = totalBal - TARGET_PER_WALLET;
+    if (excess <= 0.01) continue; // skip if within tolerance
+
+    // Unwrap the excess from WEGLD
+    const toUnwrap = Math.min(excess, Number(wegld) / 1e18);
+    if (toUnwrap < 0.01) continue;
+    const unwrapAmt = BigInt(Math.floor(toUnwrap * 1e18));
+    const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
+    const { nonce } = await acctInfo(w.address);
+    const hexAmt = unwrapAmt.toString(16).length % 2 ? '0' + unwrapAmt.toString(16) : unwrapAmt.toString(16);
+    const data = `ESDTTransfer@${Buffer.from(WEGLD_TOKEN).toString('hex')}@${hexAmt}@${Buffer.from('unwrapEgld').toString('hex')}`;
+    try {
+      await signAndSend(signer, w.address, WRAP_SC, nonce, BigInt(0), BigInt(5_000_000), data);
+      totalReturned += toUnwrap;
+      if (i % 10 === 0) log("🔄", `Unwrapped ${toUnwrap.toFixed(4)} WEGLD wallet ${i+1}/${wallets.length}`);
+    } catch (e: any) { log("⚠️", `Unwrap fail ${i}: ${e.message?.substring(0,50)}`); }
+    if (i % 5 === 4) await sleep(300);
+  }
+  log("⏳", `Unwrapped ~${totalReturned.toFixed(2)} WEGLD total. Waiting 20s...`);
+  await sleep(20000);
+
+  // Step 2: Send excess EGLD back to GL
+  log("💸", "Step 2: Sending excess EGLD back to GL...");
+  let totalSent = 0;
+  for (let i = 0; i < wallets.length; i++) {
+    const w = wallets[i];
+    const { balance, nonce } = await acctInfo(w.address);
+    const wegld = await tokenBal(w.address, WEGLD_TOKEN);
+    const totalBal = Number(balance) / 1e18 + Number(wegld) / 1e18;
+    const excess = totalBal - TARGET_PER_WALLET;
+    if (excess <= 0.01) continue;
+
+    const fee = BigInt(50_000) * GAS_PRICE;
+    const toSend = BigInt(Math.floor(excess * 1e18)) - fee;
+    if (toSend <= BigInt(0)) continue;
+    const signer = new UserSigner(UserSecretKey.fromString(w.privateKey));
+    try {
+      await signAndSend(signer, w.address, glAddr, nonce, toSend, BigInt(50_000), "");
+      totalSent += Number(toSend) / 1e18;
+      if (i % 10 === 0) log("💸", `Returned ${(Number(toSend)/1e18).toFixed(4)} EGLD wallet ${i+1}`);
+    } catch (e: any) { log("⚠️", `Return fail ${i}: ${e.message?.substring(0,50)}`); }
+    if (i % 5 === 4) await sleep(300);
+  }
+  log("⏳", "Waiting 30s...");
+  await sleep(30000);
+  const { balance: glBal } = await acctInfo(glAddr);
+  log("✅", `CORRECT DONE! Returned ~${totalSent.toFixed(2)} EGLD. GL: ${(Number(glBal)/1e18).toFixed(4)} EGLD`);
+}
+
 async function main() {
   const step = process.argv[2] || "status";
 
@@ -543,8 +612,9 @@ async function main() {
     case "micro-fund": await stepMicroFund(); break;
     case "fix-drain":  await stepFixDrain(); break;
     case "cleanup":    await stepCleanup(); break;
+    case "correct-funding": await stepCorrectFunding(); break;
     default:
-      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund|fix-drain|cleanup]");
+      console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund|fix-drain|cleanup|correct-funding]");
   }
 }
 
