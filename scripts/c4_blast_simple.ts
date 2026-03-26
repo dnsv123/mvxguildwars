@@ -1,6 +1,7 @@
 /**
- * 🔥 EMERGENCY SIMPLE BLASTER — Uses EXACT test-call code path
- * Each wallet sends 1 TX at a time, sequentially, proven to work.
+ * 🔥 EMERGENCY BLASTER v2 — Local nonce tracking (no API per-TX)
+ * Fetches nonce ONCE per wallet, then increments locally.
+ * Re-syncs only on error.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -31,8 +32,7 @@ function addressToHex(b: string): string { return Buffer.from(new Address(b).get
 function log(i: string, m: string) { console.log(`[${new Date().toISOString().slice(11,19)}] ${i} ${m}`); }
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-// EXACT same signAndSend from c4_setup.ts (PROVEN WORKING)
-async function signAndSend(
+async function sendTx(
   signer: UserSigner, from: string, to: string,
   nonce: number, value: bigint, gasLimit: bigint, data: string
 ): Promise<string> {
@@ -59,7 +59,7 @@ async function signAndSend(
   return d?.data?.txHash || "";
 }
 
-async function acctNonce(addr: string): Promise<number> {
+async function getNonce(addr: string): Promise<number> {
   const r = await fetch(`${API}/accounts/${addr}`, { signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error(`API ${r.status}`);
   const d: any = await r.json();
@@ -79,77 +79,89 @@ function buildSwapData(callType: string): string {
   ].join("@");
 }
 
-const CALL_TYPES = ["blindAsyncV1", "blindAsyncV2", "blindSync", "blindTransfExec"];
+const CALL_TYPES_ASYNC = ["blindAsyncV1", "blindAsyncV2"];
+const CALL_TYPES_ALL = ["blindAsyncV1", "blindAsyncV2", "blindSync", "blindTransfExec"];
+
+function getWalletShard(bech32: string): number {
+  const pk = new Address(bech32).getPublicKey();
+  const last = pk[pk.length - 1];
+  let shard = last % 4;
+  if (shard === 3) shard = last % 2;
+  return shard;
+}
 
 async function main() {
-  // Load forwarders + wallets
   const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
   const wallets = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_wallets.json"), "utf-8"));
 
-  // Map shard → forwarder address
   const shardForwarder: Record<number, string> = {};
   for (const f of fwds) shardForwarder[f.shard] = f.forwarderAddress;
 
-  function getWalletShard(bech32: string): number {
-    const pk = new Address(bech32).getPublicKey();
-    const last = pk[pk.length - 1];
-    let shard = last % 4;
-    if (shard === 3) shard = last % 2;
-    return shard;
-  }
-
-  // Build wallet list with signers
-  const fleet = wallets.map((w: any) => ({
+  interface Worker { address: string; shard: number; signer: UserSigner; nonce: number; alive: boolean; }
+  const fleet: Worker[] = wallets.map((w: any) => ({
     address: w.address,
     shard: getWalletShard(w.address),
     signer: new UserSigner(UserSecretKey.fromString(w.privateKey)),
+    nonce: -1, // will be fetched
+    alive: true,
   }));
 
-  log("🚀", `Simple Blaster: ${fleet.length} wallets, ${Object.keys(shardForwarder).length} forwarders`);
-  log("🚀", `Window ends: ${new Date(WINDOW_END).toISOString()}`);
+  // Fetch initial nonces — staggered to avoid API overload
+  log("🔄", "Fetching initial nonces...");
+  const BATCH = 10;
+  for (let i = 0; i < fleet.length; i += BATCH) {
+    const batch = fleet.slice(i, i + BATCH);
+    await Promise.all(batch.map(async (w) => {
+      try {
+        w.nonce = await getNonce(w.address);
+      } catch { w.alive = false; }
+    }));
+    await sleep(200);
+  }
+  const aliveCount = fleet.filter(w => w.alive).length;
+  log("✅", `Nonces loaded: ${aliveCount}/${fleet.length} wallets ready`);
 
   let totalSent = 0;
   let totalErrors = 0;
-  let callIdx = 0;
+  let round = 0;
   const startTime = Date.now();
 
   while (Date.now() < WINDOW_END) {
-    // Round-robin through wallets, send 1 TX each
-    const promises: Promise<void>[] = [];
+    round++;
+    const alive = fleet.filter(w => w.alive);
+    if (alive.length === 0) { log("🛑", "All wallets dead!"); break; }
 
-    for (const w of fleet) {
-      const forwarder = shardForwarder[w.shard];
-      if (!forwarder) continue;
+    // Send 1 TX per alive wallet, 15 at a time to avoid gateway overload
+    const CONCURRENCY = 15;
+    for (let i = 0; i < alive.length; i += CONCURRENCY) {
+      const chunk = alive.slice(i, i + CONCURRENCY);
+      await Promise.all(chunk.map(async (w) => {
+        const forwarder = shardForwarder[w.shard];
+        if (!forwarder) return;
 
-      // S0 and S2: only async types (no blindSync, no blindTransfExec)
-      let callType: string;
-      if (w.shard === 0 || w.shard === 2) {
-        callType = callIdx % 2 === 0 ? "blindAsyncV1" : "blindAsyncV2";
-      } else {
-        callType = CALL_TYPES[callIdx % CALL_TYPES.length];
-      }
+        const types = (w.shard === 1) ? CALL_TYPES_ALL : CALL_TYPES_ASYNC;
+        const callType = types[round % types.length];
+        const data = buildSwapData(callType);
 
-      promises.push((async () => {
         try {
-          const nonce = await acctNonce(w.address);
-          const data = buildSwapData(callType);
-          await signAndSend(w.signer, w.address, forwarder, nonce, BigInt(0), GAS_LIMIT, data);
+          await sendTx(w.signer, w.address, forwarder, w.nonce, BigInt(0), GAS_LIMIT, data);
+          w.nonce++; // LOCAL increment — no API needed!
           totalSent++;
         } catch (e: any) {
           totalErrors++;
-          if (totalErrors <= 3) log("❌", `${w.address.substring(0,15)}... ${e.message?.substring(0,60)}`);
+          // Try to re-sync nonce on error
+          try { w.nonce = await getNonce(w.address); } catch { w.alive = false; }
         }
-      })());
+      }));
     }
-
-    await Promise.all(promises);
-    callIdx++;
 
     const elapsed = (Date.now() - startTime) / 1000;
     const remaining = Math.floor((WINDOW_END - Date.now()) / 1000);
-    log("📊", `Round ${callIdx}: ${totalSent} sent | ${totalErrors} err | ${(totalSent/elapsed).toFixed(1)} tx/s | ${remaining}s left`);
+    if (round % 5 === 0 || round <= 3) {
+      log("📊", `R${round}: ${totalSent} sent | ${totalErrors} err | ${(totalSent/elapsed).toFixed(1)} tx/s | ${remaining}s left | ${alive.length} alive`);
+    }
 
-    await sleep(200); // Brief pause between rounds
+    await sleep(100); // Minimal pause between rounds
   }
 
   log("✅", `DONE! Total: ${totalSent} sent, ${totalErrors} errors in ${((Date.now()-startTime)/1000).toFixed(0)}s`);
