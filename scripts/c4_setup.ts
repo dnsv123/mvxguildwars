@@ -29,7 +29,7 @@ const API_URL = process.env.API_URL || "https://api.battleofnodes.com";
 const WEGLD_TOKEN = "WEGLD-bd4d79";
 const USDC_TOKEN = "USDC-c76f1f";
 const WRAP_SC = "erd1qqqqqqqqqqqqqpgqhe8t5jewej70zupmh44jurgn29psua5l2jps3ntjj3";
-const GAS_PRICE = BigInt(1_000_000_000);
+const GAS_PRICE = BigInt(3_000_000_000); // 3x gas price to OUTBID other teams in mempool!
 const txComputer = new TransactionComputer();
 
 const ENDPOINTS = [
