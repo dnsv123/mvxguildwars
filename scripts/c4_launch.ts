@@ -103,9 +103,9 @@ async function main() {
 
   // ═════════════════════════════════════
   //  PHASE 1.5: Wait for EGLD arrival in GL wallet
-  //  Polls GL balance every 30s until >= MIN_GL_BALANCE
+  //  Skip if wallets are already funded (e.g. restart scenario)
   // ═════════════════════════════════════
-  const MIN_GL_BALANCE = 300; // Need at least 300 EGLD to fund fleet (competition gives 500)
+  const MIN_GL_BALANCE = 5; // Lowered: wallets already funded, just need gas for operations
   const glKey = process.env.GL_PRIVATE_KEY;
   let glAddr = "";
   if (glKey) {
@@ -115,7 +115,22 @@ async function main() {
     glAddr = glSigner.getAddress().bech32();
   }
 
-  if (glAddr) {
+  // Check if wallets are already funded — if so, skip GL wait
+  let walletsAlreadyFunded = false;
+  for (const w of wallets.slice(0, 3)) {
+    try {
+      const r = await fetch(`https://api.battleofnodes.com/accounts/${w.address}`, { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d: any = await r.json();
+        const egld = Number(BigInt(d.balance || "0")) / 1e18;
+        if (egld >= 3) { walletsAlreadyFunded = true; break; }
+      }
+    } catch {}
+  }
+
+  if (walletsAlreadyFunded) {
+    log("✅", "Wallets already funded! Skipping GL balance wait.");
+  } else if (glAddr) {
     log("👀", `Monitoring GL wallet: ${glAddr.substring(0,20)}...`);
     while (true) {
       try {
