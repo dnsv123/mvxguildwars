@@ -104,7 +104,7 @@
     .milestone-count { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 900; color: var(--gold); }
     .milestone-label { font-size: 0.6rem; color: var(--muted); text-align: right; }
 
-    /* Hero Counter — Giant cockpit display */
+    /* Hero Counter — Dual gauge cockpit */
     .hero-counter { text-align: center; padding: 20px 0 10px; }
     .hero-counter .hero-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 4px; }
     .hero-counter .hero-num { font-family: 'JetBrains Mono', monospace; font-size: 5rem; font-weight: 900; color: var(--green); text-shadow: 0 0 40px rgba(0,230,118,0.4), 0 0 80px rgba(0,230,118,0.2); line-height: 1; }
@@ -112,6 +112,38 @@
     .hero-counter.active .hero-num { animation: heroGlow 2s ease-in-out infinite; }
     @keyframes heroGlow { 0%, 100% { text-shadow: 0 0 40px rgba(0,230,118,0.4); } 50% { text-shadow: 0 0 60px rgba(0,230,118,0.6), 0 0 120px rgba(0,230,118,0.3); } }
     .fleet-badge { display: inline-block; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); border-radius: 20px; padding: 4px 14px; font-size: 0.7rem; color: var(--accent); font-weight: 700; margin-top: 8px; }
+
+    /* Premium Gauge Dashboard */
+    .gauge-dashboard { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px; margin-bottom: 20px; align-items: center; }
+    .gauge-card { background: linear-gradient(135deg, rgba(26,34,64,0.9), rgba(18,24,43,0.95)); border: 1px solid rgba(0,212,255,0.2); border-radius: 20px; padding: 24px 16px; text-align: center; backdrop-filter: blur(10px); position: relative; overflow: hidden; }
+    .gauge-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, rgba(0,212,255,0.03), transparent); animation: gaugeRotate 8s linear infinite; }
+    @keyframes gaugeRotate { to { transform: rotate(360deg); } }
+    .gauge-card .gauge-title { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; position: relative; z-index: 1; }
+    .gauge-card .gauge-value { font-family: 'JetBrains Mono', monospace; font-size: 2.8rem; font-weight: 900; position: relative; z-index: 1; line-height: 1.1; }
+    .gauge-card .gauge-sub { font-size: 0.65rem; color: var(--muted); margin-top: 4px; position: relative; z-index: 1; }
+    .gauge-center { }
+    .gauge-center .gauge-card { border-color: rgba(0,230,118,0.3); padding: 28px 20px; }
+    .gauge-center .gauge-card::before { background: conic-gradient(transparent, rgba(0,230,118,0.04), transparent); }
+
+    /* SVG Speedometer */
+    .speedo-wrap { position: relative; width: 200px; height: 120px; margin: 0 auto 8px; z-index: 1; }
+    .speedo-svg { width: 100%; height: 100%; }
+    .speedo-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 12; stroke-linecap: round; }
+    .speedo-fill { fill: none; stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 1s ease, stroke 0.5s; filter: drop-shadow(0 0 8px currentColor); }
+    .speedo-needle { fill: none; stroke: #ff5252; stroke-width: 2.5; stroke-linecap: round; transition: transform 1s ease; transform-origin: 100px 100px; filter: drop-shadow(0 0 6px rgba(255,82,82,0.6)); }
+    .speedo-center-dot { fill: #ff5252; filter: drop-shadow(0 0 4px rgba(255,82,82,0.8)); }
+    .speedo-val { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 900; fill: var(--accent); text-anchor: middle; }
+    .speedo-unit { font-family: 'Inter', sans-serif; font-size: 10px; fill: var(--muted); text-anchor: middle; text-transform: uppercase; letter-spacing: 2px; }
+    .speedo-tick { fill: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 8px; text-anchor: middle; }
+
+    /* Radial progress for total */
+    .radial-wrap { position: relative; width: 160px; height: 160px; margin: 0 auto 4px; z-index: 1; }
+    .radial-svg { width: 100%; height: 100%; }
+    .radial-track { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 10; }
+    .radial-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.5s ease; filter: drop-shadow(0 0 10px currentColor); }
+    .radial-text { font-family: 'JetBrains Mono', monospace; font-weight: 900; text-anchor: middle; }
+
+    @media (max-width: 900px) { .gauge-dashboard { grid-template-columns: 1fr; } }
 
     /* How It Works */
     .how-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
@@ -204,12 +236,61 @@
       <div><div class="label">Status</div><div class="countdown" id="windowStatus" style="color:var(--muted)">PRE-CHALLENGE</div></div>
     </div>
 
-    <!-- Hero Counter — Big cockpit display -->
-    <div class="hero-counter" id="heroCounter">
-      <div class="hero-label">Total Successful SC Calls</div>
-      <div class="hero-num" id="heroNum">0</div>
-      <div class="hero-tps"><span id="heroTPS">0</span> tx/s</div>
-      <div class="fleet-badge">🚀 60-WALLET FLEET × 3 SHARDS × 4 CALL TYPES</div>
+    <!-- Premium Gauge Dashboard -->
+    <div class="gauge-dashboard">
+      <!-- Left: Speedometer for TPS -->
+      <div class="gauge-card">
+        <div class="gauge-title">⚡ Speed</div>
+        <div class="speedo-wrap">
+          <svg class="speedo-svg" viewBox="0 0 200 130">
+            <!-- Arc track (180 deg half-circle) -->
+            <path class="speedo-track" d="M 20 110 A 80 80 0 0 1 180 110" />
+            <path class="speedo-fill" id="speedoFill" d="M 20 110 A 80 80 0 0 1 180 110" 
+                  stroke="var(--accent)" stroke-dasharray="251" stroke-dashoffset="251" />
+            <!-- Tick marks -->
+            <text class="speedo-tick" x="18" y="122">0</text>
+            <text class="speedo-tick" x="30" y="50">250</text>
+            <text class="speedo-tick" x="100" y="25">500</text>
+            <text class="speedo-tick" x="168" y="50">750</text>
+            <text class="speedo-tick" x="182" y="122">1K</text>
+            <!-- Needle -->
+            <line class="speedo-needle" id="speedoNeedle" x1="100" y1="110" x2="100" y2="35" />
+            <circle class="speedo-center-dot" cx="100" cy="110" r="5" />
+            <!-- Value -->
+            <text class="speedo-val" id="speedoVal" x="100" y="100">0</text>
+            <text class="speedo-unit" x="100" y="115">tx/s</text>
+          </svg>
+        </div>
+        <div class="gauge-sub">Peak: <span id="speedoPeak" style="color:var(--green);font-weight:700">0</span> tx/s</div>
+      </div>
+
+      <!-- Center: Big Total Counter -->
+      <div class="gauge-center">
+        <div class="gauge-card">
+          <div class="hero-counter" id="heroCounter">
+            <div class="hero-label">Total Successful SC Calls</div>
+            <div class="hero-num" id="heroNum">0</div>
+            <div class="hero-tps"><span id="heroTPS">0</span> tx/s</div>
+            <div class="fleet-badge">🚀 60-WALLET FLEET × 3 SHARDS × 4 CALL TYPES</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Errors / Uptime radial -->
+      <div class="gauge-card">
+        <div class="gauge-title">🛡️ Health</div>
+        <div class="radial-wrap">
+          <svg class="radial-svg" viewBox="0 0 160 160">
+            <circle class="radial-track" cx="80" cy="80" r="65" />
+            <circle class="radial-fill" id="healthFill" cx="80" cy="80" r="65" 
+                    stroke="var(--green)" stroke-dasharray="408" stroke-dashoffset="0"
+                    transform="rotate(-90 80 80)" />
+            <text class="radial-text" x="80" y="72" font-size="28" fill="var(--green)" id="healthPct">100%</text>
+            <text class="radial-text" x="80" y="92" font-size="10" fill="var(--muted)">SUCCESS RATE</text>
+          </svg>
+        </div>
+        <div class="gauge-sub">Errors: <span id="gaugeErrors" style="color:var(--red);font-weight:700">0</span> · Workers: <span id="gaugeWorkers" style="color:var(--green);font-weight:700">60</span></div>
+      </div>
     </div>
 
     <!-- How It Works -->
@@ -634,6 +715,48 @@
       }
     })();
 
+    // ── Premium Gauge Animations ──
+    let peakTps = 0;
+    function updateGauges(tps, totalSent, errors) {
+      // Speedometer (0-1000 scale, 180° arc)
+      const maxTps = 1000;
+      const pct = Math.min(tps / maxTps, 1);
+      const arcLen = 251; // path length of the half-circle
+      const offset = arcLen - (pct * arcLen);
+      const fill = document.getElementById('speedoFill');
+      if (fill) {
+        fill.setAttribute('stroke-dashoffset', offset.toString());
+        // Color: cyan < 300, green 300-600, orange 600-800, red 800+
+        const col = tps < 300 ? 'var(--accent)' : tps < 600 ? 'var(--green)' : tps < 800 ? 'var(--orange)' : 'var(--red)';
+        fill.setAttribute('stroke', col);
+      }
+      // Needle rotation: 0 tps = -90°, 1000 tps = +90°
+      const angle = -90 + (pct * 180);
+      const needle = document.getElementById('speedoNeedle');
+      if (needle) needle.style.transform = `rotate(${angle}deg)`;
+      const valEl = document.getElementById('speedoVal');
+      if (valEl) valEl.textContent = Math.round(tps);
+      // Peak
+      if (tps > peakTps) { peakTps = tps; }
+      const peakEl = document.getElementById('speedoPeak');
+      if (peakEl) peakEl.textContent = Math.round(peakTps);
+
+      // Health radial
+      const total = (totalSent || 0) + (errors || 0);
+      const successRate = total > 0 ? ((totalSent || 0) / total) * 100 : 100;
+      const circLen = 408; // 2πr = 2*π*65
+      const healthOffset = circLen - ((successRate / 100) * circLen);
+      const hFill = document.getElementById('healthFill');
+      if (hFill) {
+        hFill.setAttribute('stroke-dashoffset', healthOffset.toString());
+        hFill.setAttribute('stroke', successRate > 95 ? 'var(--green)' : successRate > 80 ? 'var(--orange)' : 'var(--red)');
+      }
+      const hPct = document.getElementById('healthPct');
+      if (hPct) { hPct.textContent = successRate.toFixed(1) + '%'; hPct.setAttribute('fill', successRate > 95 ? 'var(--green)' : 'var(--orange)'); }
+      const errEl = document.getElementById('gaugeErrors');
+      if (errEl) errEl.textContent = errors || 0;
+    }
+
     // Update call-type progress bars from ACTUAL per-type counts
     function updateProgressBars(total, callTypeCounts) {
       const MAX_TARGET = 1000; // visual max scale
@@ -668,6 +791,7 @@
         if (r.ok) {
           const cp = await r.json();
           if (cp.totalSent) updateProgressBars(cp.totalSent, cp.callTypeCounts);
+          updateGauges(cp.txps || 0, cp.totalSent || 0, cp.errors || 0);
         }
       } catch {}
     }
