@@ -351,23 +351,23 @@ async function stepBlast() {
     round++;
     for (const f of fwds) {
       if (Date.now() >= WINDOW_END) break;
-      const signer = new UserSigner(UserSecretKey.fromString(f.wallet.privateKey));
-      const { nonce } = await acctInfo(f.wallet.address);
-      const types = f.shard === 1 ? ALL_TYPES : ASYNC_TYPES;
-      const callType = types[round % types.length];
-
-      const data = [
-        "ESDTTransfer", strToHex(WEGLD_TOKEN), bigIntToHex(swapAmount),
-        strToHex(callType), addressToHex(swapDest), strToHex(swapEndpoint),
-        strToHex(USDC_TOKEN), bigIntToHex(BigInt(1)),
-      ].join("@");
-
       try {
+        const signer = new UserSigner(UserSecretKey.fromString(f.wallet.privateKey));
+        const { nonce } = await acctInfo(f.wallet.address);
+        const types = f.shard === 1 ? ALL_TYPES : ASYNC_TYPES;
+        const callType = types[round % types.length];
+
+        const data = [
+          "ESDTTransfer", strToHex(WEGLD_TOKEN), bigIntToHex(swapAmount),
+          strToHex(callType), addressToHex(swapDest), strToHex(swapEndpoint),
+          strToHex(USDC_TOKEN), bigIntToHex(BigInt(1)),
+        ].join("@");
+
         await signAndSend(signer, f.wallet.address, f.forwarderAddress, nonce, BigInt(0), BigInt(30_000_000), data);
         totalSent++;
       } catch (e: any) {
         totalErrors++;
-        if (totalErrors <= 5) log("❌", `S${f.shard} ${callType}: ${e.message?.substring(0,80)}`);
+        if (totalErrors <= 10) log("❌", `S${f.shard}: ${e.message?.substring(0,80)}`);
       }
       await sleep(500);
     }
