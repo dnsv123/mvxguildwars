@@ -31,9 +31,9 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 //  SCHEDULE — March 16, 2026 UTC
 // ═══════════════════════════════════════════════════════════════
 const SCHEDULE = {
-  DISTRIBUTE:     "2026-03-16T15:45:00Z",
-  PREP_A:         "2026-03-16T15:55:00Z",
-  WINDOW_A_START: "2026-03-16T16:00:00Z",
+  DISTRIBUTE:     "2026-03-16T14:00:00Z",
+  PREP_A:         "2026-03-16T14:00:00Z",
+  WINDOW_A_START: "2026-03-16T14:00:00Z",
   WINDOW_A_END:   "2026-03-16T16:30:00Z",
   PREP_B:         "2026-03-16T16:55:00Z",
   WINDOW_B_START: "2026-03-16T17:00:00Z",
@@ -50,12 +50,12 @@ const TX_VALUE        = BigInt(0);
 const GAS_LIMIT       = BigInt(50_000);
 const GAS_PRICE_STD   = BigInt(1_000_000_000);
 
-// Window A: 1x gasPrice → fee = 0.00005/tx → budget 2000 EGLD → max 40M tx
-const WINDOW_A_GAS_X  = BigInt(1);  // 1x = MAX transactions (Supernova has 4x capacity, blocks not full)
-const WINDOW_A_MAX_TX = 80_000; // per wallet (2000 EGLD ÷ 0.00005 ÷ 500)
-// Window B: 1x gasPrice → fee = 0.00005/tx → budget 500 EGLD → max 10M tx
-const WINDOW_B_GAS_X  = BigInt(1);  // 1x = MAX transactions
-const WINDOW_B_MAX_TX = 20_000; // per wallet (500 EGLD ÷ 0.00005 ÷ 500)
+// Window A: 3x gasPrice = MAX PRIORITY!
+const WINDOW_A_GAS_X  = BigInt(3);
+const WINDOW_A_MAX_TX = 26_666; // per wallet
+// Window B: 3x gasPrice
+const WINDOW_B_GAS_X  = BigInt(3);
+const WINDOW_B_MAX_TX = 6_666; // per wallet
 
 // Block heartbeat
 const BATCH_PER_WALLET = 90;     // 90 < 100 limit (10 nonces margin de siguranță)
@@ -63,7 +63,7 @@ const BLOCK_TIME_MS    = 600;    // Supernova block time
 const HEARTBEAT_MS     = 650;    // 600ms + 50ms safety buffer (mai agresiv = mai mult throughput)
 
 // Pre-sign
-const PRE_SIGN_PER_WALLET = 2000; // pre-sign in memory (~500MB total, laptop-safe)
+const PRE_SIGN_PER_WALLET = 90; // MINIMAL — fire instantly, sign inline after!
 
 // Distribution
 const DIST_BATCH  = 25;
@@ -451,11 +451,11 @@ async function main() {
     log("📊", `Shard ${g.shard}: ${g.wallets.length} wallets`);
   }
 
-  // Connect
+  // Connect — skip network/config (gateway overloaded), we know chainID = "B"
   const httpsAgent = new https.Agent({ maxSockets: MAX_SOCKETS, keepAlive: true });
   const provider = new ProxyNetworkProvider(GATEWAY_URL, { clientName: "OpenHeart", httpsAgent, timeout: 30_000 } as any);
-  const chainID = (await provider.getNetworkConfig()).ChainID;
-  log("🌐", `Chain: ${chainID}`);
+  const chainID = "B";
+  log("🌐", `Chain: ${chainID} (hardcoded — skip gateway config)`);
 
   console.log("\n📋 CONFIG:");
   console.log(`   Window A: ${WINDOW_A_GAS_X}x gas, ${WINDOW_A_MAX_TX.toLocaleString()} max/wallet`);
@@ -469,14 +469,11 @@ async function main() {
   }
   console.log("");
 
-  // ── DISTRIBUTE ──
-  await waitUntil(SCHEDULE.DISTRIBUTE, "DISTRIBUTION (15:45)");
-  await distribute(provider, glKey, wallets, chainID);
+  // ── SKIP DISTRIBUTE (already done!) ──
+  log("⏩", "Distribution already done — skipping!");
 
-  // ── WINDOW A ──
-  await waitUntil(SCHEDULE.PREP_A, "WINDOW A PREP (15:55)");
-  // Pre-signing happens inside fireWindow
-  await waitUntil(SCHEDULE.WINDOW_A_START, "WINDOW A START (16:00)");
+  // ── WINDOW A — FIRE IMMEDIATELY ──
+  log("🔥", "Starting Window A IMMEDIATELY!");
   const waTx = await fireWindow("WINDOW A", provider, shardGroups, chainID, WINDOW_A_GAS_X, WINDOW_A_MAX_TX, SCHEDULE.WINDOW_A_END);
 
   log("⏸️", "Window A done. Break...");

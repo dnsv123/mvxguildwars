@@ -63,7 +63,8 @@ ALL_CALL_TYPES.forEach(t => callTypeCounts[t] = 0);
 const GAS_LIMIT_SC    = BigInt(80_000_000); // 80M — forwarder→DEX chain needs 30-50M (unused gas is REFUNDED on MultiversX)
 const GAS_PRICE_BASE  = BigInt(1_000_000_000);
 const SWAP_AMOUNT     = BigInt(1_000_000_000_000_000); // 0.001 WEGLD per swap
-const MIN_OUT_AMOUNT  = BigInt(1); // minimum 1 USDC unit
+let   USDC_SWAP_AMOUNT = BigInt(30_000); // ~0.03 USDC, calibrated at startup from DEX rate
+const MIN_OUT_AMOUNT  = BigInt(1); // minimum 1 unit (slippage protection)
 const MIN_EGLD_FOR_GAS = BigInt(80_000_000) * BigInt(1_000_000_000); // 0.08 EGLD max per tx (actual cost ~0.03 after refund)
 const MIN_WEGLD_FOR_SWAP = SWAP_AMOUNT; // need at least 1 swap worth
 
@@ -126,6 +127,52 @@ function buildForwarderCallData(
     bigIntToHex(minOut),              // min amount out
   ];
   return parts.join("@");
+}
+
+/**
+ * Build the `data` field for REVERSE swap: USDC → WEGLD via forwarder.
+ * Same structure as forward, but tokens/amounts are swapped.
+ */
+function buildReverseSwapData(
+  callType: string,
+  usdcAmount: bigint,
+  minOut: bigint,
+): string {
+  const parts = [
+    "ESDTTransfer",
+    strToHex(USDC_TOKEN),             // token: USDC
+    bigIntToHex(usdcAmount),           // amount of USDC to send
+    strToHex(callType),                // function on forwarder
+    addressToHex(SWAP_DEST),           // destination: DEX pair
+    strToHex(SWAP_ENDPOINT),           // endpoint: swapTokensFixedInput
+    strToHex(WEGLD_TOKEN),             // expected output: WEGLD
+    bigIntToHex(minOut),               // min amount out
+  ];
+  return parts.join("@");
+}
+
+/**
+ * Calibrate USDC swap amount by querying DEX pair reserves.
+ * Returns the USDC equivalent of SWAP_AMOUNT WEGLD (with 10% safety margin).
+ */
+async function calibrateUsdcAmount(): Promise<bigint> {
+  try {
+    const wegldReserve = await getTokenBalance(SWAP_DEST, WEGLD_TOKEN);
+    const usdcReserve = await getTokenBalance(SWAP_DEST, USDC_TOKEN);
+    if (wegldReserve > BigInt(0) && usdcReserve > BigInt(0)) {
+      // Expected USDC for SWAP_AMOUNT WEGLD: (SWAP_AMOUNT * usdcReserve) / wegldReserve
+      const expectedUsdc = (SWAP_AMOUNT * usdcReserve) / wegldReserve;
+      // Use 90% for safety (fees + slippage)
+      const safeAmount = (expectedUsdc * BigInt(90)) / BigInt(100);
+      log("📊", `DEX reserves: ${(Number(wegldReserve)/1e18).toFixed(2)} WEGLD / ${(Number(usdcReserve)/1e6).toFixed(2)} USDC`);
+      log("📊", `Calibrated: 0.001 WEGLD ≈ ${(Number(expectedUsdc)/1e6).toFixed(6)} USDC → using ${(Number(safeAmount)/1e6).toFixed(6)} USDC for reverse swaps`);
+      return safeAmount > BigInt(100) ? safeAmount : BigInt(30_000);
+    }
+  } catch (e: any) {
+    log("⚠️", `DEX rate calibration failed: ${e.message?.substring(0, 60)}`);
+  }
+  log("⚠️", `Using fallback USDC amount: 0.03 USDC (30000 units)`);
+  return BigInt(30_000);
 }
 
 /**
@@ -515,7 +562,6 @@ async function walletWorker(
   let nonce: number;
   let egldBal: bigint;
   if (startNonce !== undefined) {
-    // Use nonce from pre-sign burst (already incremented past burst TXs)
     nonce = startNonce;
     const fresh = await getAccountInfo(wallet.address);
     egldBal = fresh.balance;
@@ -525,13 +571,18 @@ async function walletWorker(
     egldBal = fresh.balance;
   }
   let wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+  let usdcBal = await getTokenBalance(wallet.address, USDC_TOKEN);
   let batchCount = 0;
   let callTypeIdx = 0;
-  const BATCH_SIZE = 5;
-  const NONCE_RESYNC_INTERVAL = 10; // Resync every 10 batches (aggressive for cross-shard)
+  const BATCH_SIZE = 10; // Increased from 5 → 10 for higher throughput
+  const NONCE_RESYNC_INTERVAL = 10;
+
+  // Bidirectional swap state: alternate forward (WEGLD→USDC) and reverse (USDC→WEGLD)
+  // Only recycle on S1 same-shard with sync/asyncV1/asyncV2 (tokens auto-return)
+  let swapForward = true; // true = WEGLD→USDC, false = USDC→WEGLD
 
   log("🔥", `W${workerId} S${shard}: ${callTypes.length} types → ${forwarderAddress.substring(0,20)}...`);
-  log("💰", `  EGLD: ${(Number(egldBal) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegldBal) / 1e18).toFixed(4)}`);
+  log("💰", `  EGLD: ${(Number(egldBal) / 1e18).toFixed(4)} | WEGLD: ${(Number(wegldBal) / 1e18).toFixed(4)} | USDC: ${(Number(usdcBal) / 1e6).toFixed(4)}`);
 
   while (Date.now() < windowEndMs) {
     const gasNeeded = MIN_EGLD_FOR_GAS * BigInt(BATCH_SIZE);
@@ -546,32 +597,71 @@ async function walletWorker(
       }
     }
 
-    if (wegldBal < MIN_WEGLD_FOR_SWAP) {
-      wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+    // Pick call type — round-robin
+    const callType = callTypes[callTypeIdx % callTypes.length];
+    callTypeIdx++;
+
+    // Determine if this call type supports bidirectional recycling
+    // Recycling works on S1 (same-shard) with blindSync/asyncV1/asyncV2
+    // These types auto-return tokens to the caller on same-shard
+    const canRecycle = shard === 1 && callType !== 'blindTransfExec';
+
+    // Determine swap direction for this batch
+    let useForward: boolean;
+    if (canRecycle) {
+      // Try reverse if we have USDC and want to recycle
+      if (!swapForward && usdcBal >= USDC_SWAP_AMOUNT) {
+        useForward = false;
+      } else {
+        // Forward: need WEGLD
+        if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+          wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+          usdcBal = await getTokenBalance(wallet.address, USDC_TOKEN);
+          if (wegldBal < MIN_WEGLD_FOR_SWAP && usdcBal >= USDC_SWAP_AMOUNT) {
+            useForward = false; // No WEGLD but have USDC → force reverse
+          } else if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+            log("🛑", `W${workerId} S${shard}: Out of WEGLD and USDC! Stopping.`);
+            break;
+          } else {
+            useForward = true;
+          }
+        } else {
+          useForward = true;
+        }
+      }
+      swapForward = !swapForward; // Toggle for next batch
+    } else {
+      // Non-recyclable: always forward (WEGLD→USDC)
+      useForward = true;
       if (wegldBal < MIN_WEGLD_FOR_SWAP) {
-        log("🛑", `W${workerId} S${shard}: Out of WEGLD! Stopping.`);
-        break;
+        wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+        if (wegldBal < MIN_WEGLD_FOR_SWAP) {
+          log("🛑", `W${workerId} S${shard}: Out of WEGLD! Stopping.`);
+          break;
+        }
       }
     }
 
-    // Periodic nonce re-sync (aggressive for cross-shard reliability)
+    // Periodic nonce re-sync
     if (batchCount > 0 && batchCount % NONCE_RESYNC_INTERVAL === 0) {
       const fresh = await getAccountInfo(wallet.address);
       nonce = fresh.nonce;
       egldBal = fresh.balance;
       wegldBal = await getTokenBalance(wallet.address, WEGLD_TOKEN);
+      usdcBal = await getTokenBalance(wallet.address, USDC_TOKEN);
     }
-
-    // Pick call type — round-robin across this worker's allowed types
-    const callType = callTypes[callTypeIdx % callTypes.length];
-    callTypeIdx++;
 
     const gasPrice = getGasPrice();
     const batch: any[] = [];
 
     for (let i = 0; i < BATCH_SIZE; i++) {
       try {
-        const data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
+        let data: string;
+        if (useForward) {
+          data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
+        } else {
+          data = buildReverseSwapData(callType, USDC_SWAP_AMOUNT, MIN_OUT_AMOUNT);
+        }
         const txJson = await signAndSerializeSC(
           signer,
           wallet.address,
@@ -584,7 +674,13 @@ async function walletWorker(
         );
         batch.push(txJson);
         nonce++;
-        wegldBal -= SWAP_AMOUNT;
+        if (useForward) {
+          wegldBal -= SWAP_AMOUNT;
+          if (canRecycle) usdcBal += USDC_SWAP_AMOUNT; // Estimate USDC received
+        } else {
+          usdcBal -= USDC_SWAP_AMOUNT;
+          wegldBal += SWAP_AMOUNT; // Estimate WEGLD received (slightly less due to fees)
+        }
         egldBal -= GAS_LIMIT_SC * gasPrice;
       } catch (e: any) {
         errors++;
@@ -592,36 +688,35 @@ async function walletWorker(
       }
     }
 
-    // Send batch — stop on first error and resync nonce immediately
-    let batchHadError = false;
-    for (const txJson of batch) {
+    // Send batch via send-multiple API (1 HTTP call for all TXs = much faster)
+    if (batch.length > 0) {
       try {
-        await sendTxRaw(txJson);
-        sent++;
-        totalSent++;
-        callTypeCounts[callType] = (callTypeCounts[callType] || 0) + 1;
-      } catch (e: any) {
-        errors++;
-        totalErrors++;
-        batchHadError = true;
-        break; // Stop sending rest of batch — nonces after this are invalid
-      }
-    }
-
-    // On ANY error: immediately resync nonce (don't wait for NONCE_RESYNC_INTERVAL)
-    if (batchHadError) {
-      try {
-        const fresh = await getAccountInfo(wallet.address);
-        nonce = fresh.nonce;
-        egldBal = fresh.balance;
+        const ok = await sendTxBatchRaw(batch);
+        sent += ok;
+        totalSent += ok;
+        callTypeCounts[callType] = (callTypeCounts[callType] || 0) + ok;
+        if (ok < batch.length) {
+          // Partial success — some TXs rejected, resync nonce
+          const fresh = await getAccountInfo(wallet.address);
+          nonce = fresh.nonce;
+          egldBal = fresh.balance;
+        }
       } catch {
-        // If resync fails, just continue with current nonce
+        errors += batch.length;
+        totalErrors += batch.length;
+        // Full batch failed — resync nonce
+        try {
+          const fresh = await getAccountInfo(wallet.address);
+          nonce = fresh.nonce;
+          egldBal = fresh.balance;
+        } catch {}
+        failoverEndpoint();
+        await sleep(200);
       }
-      await sleep(200); // Brief pause after error
     }
 
     batchCount++;
-    await sleep(50); // Tiny pause between batches for fairness
+    await sleep(10); // Reduced from 50ms → 10ms for higher throughput
   }
 
   } catch (e: any) {
@@ -721,6 +816,13 @@ async function main() {
   }
 
   // ═══════════════════════════════════════
+  //  CALIBRATE USDC SWAP AMOUNT from DEX rate
+  // ═══════════════════════════════════════
+  USDC_SWAP_AMOUNT = await calibrateUsdcAmount();
+  log("🔄", `BIDIRECTIONAL RECYCLING ENABLED — S1 workers will alternate WEGLD↔USDC`);
+  log("🔄", `Forward: 0.001 WEGLD → USDC | Reverse: ${(Number(USDC_SWAP_AMOUNT)/1e6).toFixed(6)} USDC → WEGLD`);
+
+  // ═══════════════════════════════════════
   //  PRE-SIGN BURST — Sign TXs BEFORE window opens!
   //  This gives us 600 TXs ready to blast at T=0
   // ═══════════════════════════════════════
@@ -740,10 +842,22 @@ async function main() {
         const { nonce } = await getAccountInfo(wc.wallet.address);
         const txJsons: string[] = [];
         let currentNonce = nonce;
+        let preSignForward = true; // Alternate directions in pre-sign too
 
         for (let i = 0; i < PRE_SIGN_PER_WALLET; i++) {
           const callType = wc.callTypes[i % wc.callTypes.length];
-          const data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
+          const canRecycle = wc.shard === 1 && callType !== 'blindTransfExec';
+          
+          let data: string;
+          if (canRecycle && !preSignForward) {
+            // Reverse swap for recyclable types — needs USDC from a prior forward swap
+            // For pre-sign, only alternate after first forward swap
+            data = buildReverseSwapData(callType, USDC_SWAP_AMOUNT, MIN_OUT_AMOUNT);
+          } else {
+            data = buildForwarderCallData(callType, SWAP_AMOUNT, MIN_OUT_AMOUNT);
+          }
+          if (canRecycle) preSignForward = !preSignForward;
+          
           const txJson = await signAndSerializeSC(
             signer, wc.wallet.address, wc.forwarderAddress,
             currentNonce, BigInt(0), GAS_LIMIT_SC, GAS_PRICE_BASE, data,
