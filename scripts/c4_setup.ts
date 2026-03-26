@@ -327,6 +327,58 @@ async function stepTestCall() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  BLAST: Rapid loop of test-call — PROVEN to produce calls
+// ═══════════════════════════════════════════════════════════════
+async function stepBlast() {
+  const fwds = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "c4_forwarders.json"), "utf-8"));
+  const swapDest = "erd1qqqqqqqqqqqqqpgqeel2kumf0r8ffyhth7pqdujjat9nx0862jpsg2pqaq";
+  const swapEndpoint = "swapTokensFixedInput";
+  const swapAmount = BigInt(1_000_000_000_000_000);
+
+  function strToHex(s: string) { return Buffer.from(s).toString("hex"); }
+  function bigIntToHex(n: bigint) { const h = n.toString(16); return h.length % 2 ? "0"+h : h; }
+  function addressToHex(b: string) { return Buffer.from(new Address(b).getPublicKey()).toString("hex"); }
+
+  const WINDOW_END = new Date("2026-03-26T17:00:00Z").getTime();
+  const ALL_TYPES = ["blindAsyncV1", "blindAsyncV2", "blindSync", "blindTransfExec"];
+  const ASYNC_TYPES = ["blindAsyncV1", "blindAsyncV2"];
+  let totalSent = 0, totalErrors = 0, round = 0;
+  const startTime = Date.now();
+
+  log("🔥", `BLAST MODE: ${fwds.length} deployer wallets, window ends ${new Date(WINDOW_END).toISOString()}`);
+
+  while (Date.now() < WINDOW_END) {
+    round++;
+    for (const f of fwds) {
+      if (Date.now() >= WINDOW_END) break;
+      const signer = new UserSigner(UserSecretKey.fromString(f.wallet.privateKey));
+      const { nonce } = await acctInfo(f.wallet.address);
+      const types = f.shard === 1 ? ALL_TYPES : ASYNC_TYPES;
+      const callType = types[round % types.length];
+
+      const data = [
+        "ESDTTransfer", strToHex(WEGLD_TOKEN), bigIntToHex(swapAmount),
+        strToHex(callType), addressToHex(swapDest), strToHex(swapEndpoint),
+        strToHex(USDC_TOKEN), bigIntToHex(BigInt(1)),
+      ].join("@");
+
+      try {
+        await signAndSend(signer, f.wallet.address, f.forwarderAddress, nonce, BigInt(0), BigInt(30_000_000), data);
+        totalSent++;
+      } catch (e: any) {
+        totalErrors++;
+        if (totalErrors <= 5) log("❌", `S${f.shard} ${callType}: ${e.message?.substring(0,80)}`);
+      }
+      await sleep(500);
+    }
+    const elapsed = (Date.now() - startTime) / 1000;
+    const remaining = Math.floor((WINDOW_END - Date.now()) / 1000);
+    log("📊", `R${round}: ${totalSent} calls | ${totalErrors} err | ${(totalSent/elapsed).toFixed(1)}/s | ${remaining}s left`);
+  }
+  log("✅", `BLAST DONE! ${totalSent} calls, ${totalErrors} errors`);
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  MICRO-FUND: Send tiny amounts to 60 fleet wallets for testing
 // ═══════════════════════════════════════════════════════════════
 async function stepMicroFund() {
@@ -658,6 +710,7 @@ async function main() {
     case "cleanup":    await stepCleanup(); break;
     case "correct-funding": await stepCorrectFunding(); break;
     case "fix-payable": await stepFixPayable(); break;
+    case "blast": await stepBlast(); break;
     default:
       console.log("Usage: npx ts-node --transpileOnly scripts/c4_setup.ts [wallets|fund|wrap|status|test-call|micro-fund|fix-drain|cleanup|correct-funding|fix-payable]");
   }
