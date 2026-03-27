@@ -49,8 +49,23 @@ echo ""
 
 # ═══ Step 1: Fresh wallets ═══
 echo "[$(date +%H:%M:%S)] 🔑 Step 1/7: Generating FRESH wallets..."
-rm -f c5_agents.json
+rm -f c5_agents.json c5_agents_public.json
 npx ts-node --transpileOnly scripts/c5_setup.ts wallets
+
+# Create public JSON (just addresses — no private keys!) for dashboard auto-load
+cat c5_agents.json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+pub = [{'index': w['index'], 'address': w['address']} for w in d]
+json.dump(pub, open('c5_agents_public.json','w'), indent=2)
+print()
+print('📋 AGENT ADDRESSES (copy-paste for dashboard):')
+print('═' * 60)
+for w in d:
+    print(w['address'])
+print('═' * 60)
+print()
+"
 echo ""
 
 # ═══ Step 2: Set addresses in .env ═══

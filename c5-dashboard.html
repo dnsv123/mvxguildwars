@@ -389,6 +389,37 @@
     .log-green { color: #00ff87 !important; font-weight: 700; }
     .log-red { color: #ff4455 !important; font-weight: 700; }
 
+    /* AGENT MONITORING */
+    .agents-panel {
+      margin: 0 16px 16px; background: #12122a;
+      border: 1px solid #2a2a4a; border-radius: 10px; padding: 14px;
+    }
+    .agents-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .agents-header textarea {
+      flex: 1; min-width: 200px; height: 36px; font-family: monospace; font-size: 0.7em;
+      padding: 6px 10px; border-radius: 6px; border: 1px solid #2a2a4a;
+      background: #1a1a3a; color: #e0e0f0; resize: vertical;
+    }
+    .agent-table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+    .agent-table th {
+      font-family: 'Press Start 2P', monospace; font-size: 0.5em;
+      color: #555; padding: 6px 4px; text-align: left; border-bottom: 1px solid #2a2a4a;
+    }
+    .agent-table td {
+      padding: 5px 4px; border-bottom: 1px solid #1a1a2a; font-family: monospace;
+    }
+    .agent-table .addr { color: #60efff; font-size: 0.85em; }
+    .agent-table .addr a { color: #60efff; text-decoration: none; }
+    .agent-table .addr a:hover { text-decoration: underline; color: #a855f7; }
+    .agent-table .nonce { color: #00ff87; font-weight: 700; }
+    .agent-table .bal { color: #eab308; }
+    .agent-table .txcount { color: #f97316; font-weight: 700; font-size: 1.1em; }
+    .agent-row { transition: background 0.3s; }
+    .agent-row:hover { background: #1a1a3a; }
+    .agent-row.active td { background: #00ff8708; }
+
     .footer {
       text-align: center; padding: 12px; color: #222;
       font-size: 0.6em; font-family: 'Press Start 2P', monospace;
@@ -440,6 +471,21 @@
     <div class="projectile-layer" id="projectileLayer"></div>
   </div>
 
+  <!-- AGENT MONITORING -->
+  <div class="agents-panel">
+    <div class="panel-title">🤖 AGENT MONITORING — Live On-Chain Stats</div>
+    <div class="agents-header">
+      <textarea id="agentAddresses" placeholder="Paste agent addresses (one per line) from c5_launch.sh output"></textarea>
+      <button class="btn btn-go" onclick="loadAgentsFromText()" style="font-size:0.45em;">📋 LOAD</button>
+      <button class="btn btn-sim" onclick="autoLoadAgents()" style="font-size:0.45em;">⚡ AUTO</button>
+    </div>
+    <table class="agent-table" id="agentTable">
+      <thead><tr><th>#</th><th>ADDRESS</th><th>NONCE</th><th>TXs SENT</th><th>BALANCE</th><th>🔗</th></tr></thead>
+      <tbody id="agentTableBody"><tr><td colspan="6" style="color:#333;text-align:center;padding:16px;">Load agents to start monitoring...</td></tr></tbody>
+      <tfoot id="agentTableFoot"></tfoot>
+    </table>
+  </div>
+
   <div class="columns">
     <div class="panel">
       <div class="panel-title">📡 COMMAND FEED</div>
@@ -463,6 +509,90 @@
     let agents = [], timeline = [];
     let totalGreen = 0, totalRed = 0, totalErr = 0;
     let lastCountTime = Date.now(), lastCount = 0;
+
+    // Agent monitoring state
+    let agentAddrs = [];
+    let agentInitNonces = {};  // nonce when we started monitoring
+    let agentPolling = false;
+    let agentTotalTxs = 0;
+
+    function loadAgentsFromText() {
+      const text = document.getElementById('agentAddresses').value.trim();
+      if (!text) { alert('Paste agent addresses first!'); return; }
+      agentAddrs = text.split('\n').map(s => s.trim()).filter(s => s.startsWith('erd1'));
+      if (agentAddrs.length === 0) { alert('No valid erd1... addresses found'); return; }
+      startAgentMonitoring();
+    }
+
+    async function autoLoadAgents() {
+      try {
+        const r = await fetch('c5_agents_public.json');
+        const data = await r.json();
+        agentAddrs = data.map(a => a.address);
+        document.getElementById('agentAddresses').value = agentAddrs.join('\n');
+        startAgentMonitoring();
+      } catch(e) {
+        alert('Could not auto-load. Paste addresses manually.');
+      }
+    }
+
+    function startAgentMonitoring() {
+      renderAgentTable();
+      if (!agentPolling) {
+        agentPolling = true;
+        pollAgentStats();
+      }
+    }
+
+    function renderAgentTable() {
+      const tbody = document.getElementById('agentTableBody');
+      tbody.innerHTML = agentAddrs.map((addr, i) => `
+        <tr class="agent-row" id="ar-${i}">
+          <td style="color:#555;">${i}</td>
+          <td class="addr"><a href="https://bon-explorer.multiversx.com/accounts/${addr}" target="_blank">${addr.substring(0,18)}...${addr.slice(-6)}</a></td>
+          <td class="nonce" id="an-${i}">-</td>
+          <td class="txcount" id="at-${i}">-</td>
+          <td class="bal" id="ab-${i}">-</td>
+          <td><a href="https://bon-explorer.multiversx.com/accounts/${addr}" target="_blank" style="color:#a855f7;">🔗</a></td>
+        </tr>
+      `).join('');
+    }
+
+    async function pollAgentStats() {
+      if (agentAddrs.length === 0) return;
+      let totalNonce = 0, totalBal = 0;
+      for (let i = 0; i < agentAddrs.length; i++) {
+        try {
+          const r = await fetch(`${apiUrl}/accounts/${agentAddrs[i]}`);
+          const d = await r.json();
+          const nonce = d.nonce || 0;
+          const bal = (Number(BigInt(d.balance || '0')) / 1e18).toFixed(4);
+          // Track initial nonce to calculate TXs sent since monitoring
+          if (agentInitNonces[agentAddrs[i]] === undefined) agentInitNonces[agentAddrs[i]] = nonce;
+          const txsSent = nonce - agentInitNonces[agentAddrs[i]];
+          totalNonce += txsSent;
+          totalBal += parseFloat(bal);
+          const ne = document.getElementById(`an-${i}`);
+          const te = document.getElementById(`at-${i}`);
+          const be = document.getElementById(`ab-${i}`);
+          if (ne) ne.textContent = nonce;
+          if (te) te.textContent = txsSent > 0 ? '+' + txsSent : '0';
+          if (be) be.textContent = bal;
+          // Highlight active agents
+          const row = document.getElementById(`ar-${i}`);
+          if (row) row.className = txsSent > 0 ? 'agent-row active' : 'agent-row';
+          // Update tank stat
+          const ts = document.getElementById(`ts${i}`);
+          if (ts) ts.textContent = nonce + ' tx';
+        } catch {}
+      }
+      agentTotalTxs = totalNonce;
+      const foot = document.getElementById('agentTableFoot');
+      foot.innerHTML = `<tr><td></td><td style="color:#60efff;font-weight:700;">TOTAL (${agentAddrs.length} agents)</td><td class="nonce">Σ</td><td class="txcount">${totalNonce > 0 ? '+' + totalNonce : '0'}</td><td class="bal">${totalBal.toFixed(4)}</td><td></td></tr>`;
+      document.getElementById('totalSent').textContent = totalNonce;
+      document.getElementById('score').textContent = totalNonce;
+      setTimeout(pollAgentStats, 5000);
+    }
 
     // Create stars
     (function createStars() {
@@ -670,16 +800,8 @@
     }
 
     async function pollAgents() {
-      if (!monitoring) return;
-      for (let i = 0; i < 10; i++) {
-        try {
-          const r = await fetch(`${apiUrl}/accounts/${agents[i]?.address}`);
-          const d = await r.json();
-          const s = document.getElementById(`ts${i}`);
-          if (s) s.textContent = `n:${d.nonce}`;
-        } catch {}
-      }
-      setTimeout(pollAgents, 10000);
+      // Agent polling is now handled by pollAgentStats()
+      // This function kept for compatibility with startMonitoring()
     }
 
     function updateUI() {
