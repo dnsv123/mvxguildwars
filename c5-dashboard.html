@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤖 C5 Agent Arena — OpenHeart Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0a0a1a;
+      color: #e0e0f0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      font-size: 2.2em;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00ff87, #60efff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .header .subtitle {
+      color: #888;
+      font-size: 0.95em;
+    }
+
+    .state-banner {
+      text-align: center;
+      padding: 30px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      font-size: 3em;
+      font-weight: 900;
+      letter-spacing: 4px;
+      transition: all 0.3s ease;
+    }
+    .state-green {
+      background: linear-gradient(135deg, #00ff8720, #00ff8708);
+      border: 2px solid #00ff87;
+      color: #00ff87;
+      box-shadow: 0 0 40px #00ff8730;
+    }
+    .state-red {
+      background: linear-gradient(135deg, #ff445520, #ff445508);
+      border: 2px solid #ff4455;
+      color: #ff4455;
+      box-shadow: 0 0 40px #ff445530;
+    }
+    .state-unknown {
+      background: linear-gradient(135deg, #ffaa0020, #ffaa0008);
+      border: 2px solid #ffaa00;
+      color: #ffaa00;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #12122a;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-card .value {
+      font-size: 2.4em;
+      font-weight: 900;
+      background: linear-gradient(135deg, #60efff, #00ff87);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-card .label {
+      font-size: 0.85em;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .section-title {
+      font-size: 1.2em;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #60efff;
+    }
+
+    .agents-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    .agents-table th {
+      background: #1a1a3a;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 0.85em;
+      color: #888;
+      border-bottom: 1px solid #2a2a4a;
+    }
+    .agents-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #1a1a3a;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+    .agents-table tr:hover { background: #15152a; }
+
+    .command-log {
+      background: #12122a;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 24px;
+    }
+    .log-entry {
+      padding: 6px 0;
+      border-bottom: 1px solid #1a1a2a;
+      font-size: 0.88em;
+      display: flex;
+      gap: 8px;
+    }
+    .log-entry .time { color: #666; font-family: monospace; min-width: 90px; }
+    .log-entry .cmd { color: #ccc; flex: 1; }
+    .log-entry .result-green { color: #00ff87; font-weight: 700; }
+    .log-entry .result-red { color: #ff4455; font-weight: 700; }
+
+    .config-section {
+      background: #12122a;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .config-section input, .config-section button {
+      font-family: 'Inter', monospace;
+      font-size: 0.9em;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #3a3a5a;
+      background: #1a1a3a;
+      color: #e0e0f0;
+      margin: 4px;
+    }
+    .config-section button {
+      background: linear-gradient(135deg, #00ff87, #60efff);
+      color: #0a0a1a;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+    }
+    .config-section button:hover { opacity: 0.9; }
+
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .footer { text-align: center; color: #444; margin-top: 24px; font-size: 0.8em; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🤖 Agent Arena — OpenHeart</h1>
+    <div class="subtitle">Challenge 5 | Red Light / Green Light | Live Dashboard</div>
+  </div>
+
+  <!-- STATE BANNER -->
+  <div id="stateBanner" class="state-banner state-unknown pulse">
+    ⏳ WAITING FOR START
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="value" id="totalSent">0</div>
+      <div class="label">Total Sent (Green)</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="score">0</div>
+      <div class="label">Estimated Score</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="txPerSec">0</div>
+      <div class="label">TX/s (current)</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="errors">0</div>
+      <div class="label">Errors</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="greenTime">0s</div>
+      <div class="label">Green Time</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="commandCount">0</div>
+      <div class="label">Commands Received</div>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="config-section">
+    <div class="section-title">⚙️ Configuration</div>
+    <div style="margin-top: 8px;">
+      <label>Admin Wallet:</label>
+      <input type="text" id="adminAddr" placeholder="erd1..." size="50">
+      <label style="margin-left: 12px;">Target Wallet:</label>
+      <input type="text" id="targetAddr" placeholder="erd1..." size="50">
+      <button onclick="startMonitoring()">▶ Start Monitoring</button>
+    </div>
+  </div>
+
+  <!-- AGENTS TABLE -->
+  <div class="section-title">🤖 Agent Fleet</div>
+  <table class="agents-table">
+    <thead>
+      <tr><th>#</th><th>Address</th><th>Balance</th><th>Nonce</th><th>Sent</th><th>Status</th></tr>
+    </thead>
+    <tbody id="agentsBody">
+      <tr><td colspan="6" style="text-align:center; color:#666;">Loading agents...</td></tr>
+    </tbody>
+  </table>
+
+  <!-- COMMAND LOG -->
+  <div class="section-title">📡 Command Log</div>
+  <div class="command-log" id="commandLog">
+    <div class="log-entry">
+      <span class="time">--:--:--</span>
+      <span class="cmd">Waiting for admin commands...</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    💚 OpenHeart Guild | Challenge 5: Agent Arena | Powered by Gemini AI
+  </div>
+
+  <script>
+    const API = 'https://api.battleofnodes.com';
+    let adminAddr = '';
+    let targetAddr = '';
+    let monitoring = false;
+    let lastTxHash = '';
+    let commands = [];
+    let state = 'UNKNOWN';
+
+    function startMonitoring() {
+      adminAddr = document.getElementById('adminAddr').value.trim();
+      targetAddr = document.getElementById('targetAddr').value.trim();
+      if (!adminAddr || !targetAddr) { alert('Set both addresses!'); return; }
+      monitoring = true;
+      pollAdmin();
+      pollLeaderboard();
+    }
+
+    async function pollAdmin() {
+      if (!monitoring) return;
+      try {
+        const res = await fetch(`${API}/accounts/${adminAddr}/transactions?receiver=${targetAddr}&size=5&order=desc`);
+        const txs = await res.json();
+        if (Array.isArray(txs)) {
+          for (const tx of txs) {
+            if (tx.txHash === lastTxHash) break;
+            const data = atob(tx.data || '');
+            if (!data) continue;
+
+            // Simple classification for display
+            const lower = data.toLowerCase();
+            const isGreen = /\b(go|start|begin|green|fire|send|resume|run|launch|proceed)\b/.test(lower);
+            const isRed = /\b(stop|halt|red|freeze|wait|pause|cease|hold|end)\b/.test(lower);
+            const newState = isGreen ? 'GREEN' : isRed ? 'RED' : state;
+
+            commands.unshift({ time: new Date().toISOString().slice(11,19), text: data, result: newState });
+            if (commands.length > 50) commands.pop();
+            state = newState;
+            lastTxHash = tx.txHash;
+            updateUI();
+            break;
+          }
+        }
+      } catch (e) { console.error('Poll error:', e); }
+      setTimeout(pollAdmin, 2000);
+    }
+
+    async function pollLeaderboard() {
+      if (!monitoring) return;
+      // Refresh agent data
+      try {
+        const agentsRes = await fetch('c5_agents.json');
+        if (agentsRes.ok) {
+          const agents = await agentsRes.json();
+          const tbody = document.getElementById('agentsBody');
+          let html = '';
+          for (let i = 0; i < agents.length; i++) {
+            try {
+              const info = await fetch(`${API}/accounts/${agents[i].address}`);
+              const data = await info.json();
+              const bal = (Number(BigInt(data.balance || '0')) / 1e18).toFixed(2);
+              html += `<tr>
+                <td>${i}</td>
+                <td>${agents[i].address.substring(0,20)}...</td>
+                <td>${bal} EGLD</td>
+                <td>${data.nonce || 0}</td>
+                <td>-</td>
+                <td style="color: ${state === 'GREEN' ? '#00ff87' : '#ff4455'}">●</td>
+              </tr>`;
+            } catch { 
+              html += `<tr><td>${i}</td><td>${agents[i].address.substring(0,20)}...</td><td colspan="4">fetch error</td></tr>`;
+            }
+          }
+          tbody.innerHTML = html;
+        }
+      } catch {}
+      setTimeout(pollLeaderboard, 10000);
+    }
+
+    function updateUI() {
+      // State banner
+      const banner = document.getElementById('stateBanner');
+      banner.textContent = state === 'GREEN' ? '🟢 GREEN LIGHT — SENDING' :
+                           state === 'RED' ? '🔴 RED LIGHT — STOPPED' : '⏳ WAITING';
+      banner.className = `state-banner state-${state.toLowerCase()} ${state === 'GREEN' ? 'pulse' : ''}`;
+
+      // Command count
+      document.getElementById('commandCount').textContent = commands.length;
+
+      // Command log
+      const logEl = document.getElementById('commandLog');
+      logEl.innerHTML = commands.map(c => `
+        <div class="log-entry">
+          <span class="time">${c.time}</span>
+          <span class="cmd">${c.text.substring(0, 60)}</span>
+          <span class="result-${c.result.toLowerCase()}">${c.result}</span>
+        </div>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

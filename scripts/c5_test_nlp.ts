@@ -5,7 +5,7 @@
 
 import * as dotenv from "dotenv";
 import * as path from "path";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
@@ -80,14 +80,15 @@ const TEST_CASES: TestCase[] = [
 ];
 
 async function runTests() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.log("❌ No OPENAI_API_KEY in .env — cannot test LLM classifier.");
-    console.log("   Add OPENAI_API_KEY=sk-... to your .env file.");
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    console.log("❌ No GEMINI_API_KEY in .env — cannot test LLM classifier.");
+    console.log("   Add GEMINI_API_KEY=... to your .env file.");
     return;
   }
 
-  const openai = new OpenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(geminiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
   let correct = 0;
   let failed = 0;
   const failures: { input: string; expected: string; got: string }[] = [];
@@ -96,17 +97,9 @@ async function runTests() {
 
   for (const tc of TEST_CASES) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Current state: RED\nAdmin command: "${tc.input}"` },
-        ],
-        max_tokens: 5,
-        temperature: 0,
-      });
-
-      const answer = (response.choices[0]?.message?.content || "").trim().toUpperCase();
+      const prompt = `${SYSTEM_PROMPT}\n\nCurrent state: RED\nAdmin command: "${tc.input}"`;
+      const genResult = await model.generateContent(prompt);
+      const answer = (genResult.response?.text() || "").trim().toUpperCase();
       let result: string;
       if (answer === "GREEN") result = "GREEN";
       else if (answer === "RED") result = "RED";

@@ -23,7 +23,7 @@ import * as path from "path";
 import * as dotenv from "dotenv";
 import { Transaction, Address, TransactionComputer } from "@multiversx/sdk-core";
 import { UserSecretKey, UserSigner } from "@multiversx/sdk-wallet";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
@@ -121,7 +121,7 @@ async function gatewaySend(txJson: any): Promise<string> {
 // ═══════════════════════════════════════════════════════════════
 //  NLP — Classify admin commands using OpenAI
 // ═══════════════════════════════════════════════════════════════
-let openai: OpenAI | null = null;
+let gemini: any = null; // Gemini model instance
 const classificationCache = new Map<string, LightState>();
 
 const SYSTEM_PROMPT = `You are a traffic light controller for a blockchain Red Light / Green Light game.
@@ -149,30 +149,23 @@ async function classifyCommand(text: string): Promise<LightState> {
   const cached = classificationCache.get(text);
   if (cached) return cached;
 
-  // Try LLM first
-  if (openai) {
+  // Try Gemini LLM first
+  if (gemini) {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Current state: ${currentState}\nAdmin command: "${text}"` },
-        ],
-        max_tokens: 5,
-        temperature: 0,
-      });
+      const prompt = `${SYSTEM_PROMPT}\n\nCurrent state: ${currentState}\nAdmin command: "${text}"`;
+      const result = await gemini.generateContent(prompt);
+      const answer = (result.response?.text() || "").trim().toUpperCase();
 
-      const answer = (response.choices[0]?.message?.content || "").trim().toUpperCase();
-      let result: LightState;
-      if (answer === "GREEN") result = "GREEN";
-      else if (answer === "RED") result = "RED";
-      else if (answer === "SAME") result = currentState;
-      else result = fallbackClassify(text);
+      let classified: LightState;
+      if (answer === "GREEN") classified = "GREEN";
+      else if (answer === "RED") classified = "RED";
+      else if (answer === "SAME") classified = currentState;
+      else classified = fallbackClassify(text);
 
-      classificationCache.set(text, result);
-      return result;
+      classificationCache.set(text, classified);
+      return classified;
     } catch (e: any) {
-      log("⚠️", `LLM failed: ${e.message?.substring(0, 60)}. Using fallback.`);
+      log("⚠️", `Gemini failed: ${e.message?.substring(0, 60)}. Using fallback.`);
     }
   }
 
@@ -389,13 +382,14 @@ async function main() {
   log("⚙️", `API: ${API_URL}`);
   log("⚙️", `Gateway: ${GATEWAY_URL}`);
 
-  // Init OpenAI
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey) {
-    openai = new OpenAI({ apiKey });
-    log("✅", "OpenAI API configured — LLM classification active");
+  // Init Gemini
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    gemini = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    log("✅", "Gemini API configured — LLM classification active");
   } else {
-    log("⚠️", "No OPENAI_API_KEY — using keyword fallback ONLY");
+    log("⚠️", "No GEMINI_API_KEY — using keyword fallback ONLY");
   }
 
   // Load agent wallets
