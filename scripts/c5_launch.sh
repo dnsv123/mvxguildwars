@@ -1,18 +1,19 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-#  🚀 C5 AGENT ARENA — ONE-CLICK LAUNCHER
+#  🚀 C5 AGENT ARENA — DEFINITIVE LAUNCH SCRIPT
 #
-#  Usage: bash scripts/c5_launch.sh ADMIN_ADDR TARGET_ADDR
+#  Usage: bash scripts/c5_launch.sh erd1ADMIN erd1TARGET
 #
-#  This script:
-#  1. Sets Admin + Target addresses in .env
-#  2. Funds all 10 agent wallets (50 EGLD each)
-#  3. Waits for confirmations
-#  4. Registers all agents via MX-8004
-#  5. Tests one TX per agent
-#  6. Launches the autonomous agent bot
+#  This does EVERYTHING:
+#  1. Generates FRESH wallets (deletes old ones)
+#  2. Sets Admin + Target in .env
+#  3. Funds 10 agents (50 EGLD each = 500 EGLD)
+#  4. Registers all 10 agents via MX-8004
+#  5. Sends 1 test TX per agent to verify chain delivery
+#  6. Prints all verification links
+#  7. Launches the autonomous agent bot
 #
-#  💚 OpenHeart Guild
+#  💚 OpenHeart Guild — Challenge 5
 # ═══════════════════════════════════════════════════════════════
 
 set -e
@@ -22,69 +23,101 @@ TARGET="$2"
 
 if [ -z "$ADMIN" ] || [ -z "$TARGET" ]; then
   echo ""
-  echo "═══════════════════════════════════════════════════"
-  echo "  🚀 C5 AGENT ARENA — ONE-CLICK LAUNCHER"
-  echo "═══════════════════════════════════════════════════"
+  echo "█████████████████████████████████████████████████████████"
+  echo "█  🚀 C5 AGENT ARENA — LAUNCH SCRIPT                    "
+  echo "█████████████████████████████████████████████████████████"
   echo ""
-  echo "  Usage: bash scripts/c5_launch.sh ADMIN_ADDR TARGET_ADDR"
+  echo "  Usage:"
+  echo "    bash scripts/c5_launch.sh erd1ADMIN_ADDR erd1TARGET_ADDR"
   echo ""
   echo "  Example:"
-  echo "  bash scripts/c5_launch.sh erd1admin... erd1target..."
+  echo "    bash scripts/c5_launch.sh erd1qr... erd1xy..."
   echo ""
   exit 1
 fi
 
-echo ""
-echo "████████████████████████████████████████████████████████████"
-echo "█  🚀 C5 AGENT ARENA — LAUNCHING                        "
-echo "█  Admin: ${ADMIN:0:25}..."
-echo "█  Target: ${TARGET:0:25}..."
-echo "████████████████████████████████████████████████████████████"
-echo ""
-
 cd "$(dirname "$0")/.."
 
-# ═══ Step 1: Set addresses in .env ═══
-echo "[$(date +%H:%M:%S)] ⚙️  Setting addresses in .env..."
+echo ""
+echo "██████████████████████████████████████████████████████████████"
+echo "█  🚀 C5 AGENT ARENA — LAUNCHING"
+echo "█  Admin:  ${ADMIN:0:30}..."
+echo "█  Target: ${TARGET:0:30}..."
+echo "█  Time:   $(date '+%H:%M:%S UTC%z')"
+echo "██████████████████████████████████████████████████████████████"
+echo ""
 
-# Remove old entries if they exist
+# ═══ Step 1: Fresh wallets ═══
+echo "[$(date +%H:%M:%S)] 🔑 Step 1/7: Generating FRESH wallets..."
+rm -f c5_agents.json
+npx ts-node --transpileOnly scripts/c5_setup.ts wallets
+echo ""
+
+# ═══ Step 2: Set addresses in .env ═══
+echo "[$(date +%H:%M:%S)] ⚙️  Step 2/7: Setting addresses in .env..."
 sed -i '/^C5_ADMIN_ADDR=/d' .env 2>/dev/null || true
 sed -i '/^C5_TARGET_ADDR=/d' .env 2>/dev/null || true
-
-# Add new entries
 echo "C5_ADMIN_ADDR=$ADMIN" >> .env
 echo "C5_TARGET_ADDR=$TARGET" >> .env
-echo "[$(date +%H:%M:%S)] ✅ .env updated"
-
-# ═══ Step 2: Fund agents ═══
+echo "  ✅ C5_ADMIN_ADDR=$ADMIN"
+echo "  ✅ C5_TARGET_ADDR=$TARGET"
 echo ""
-echo "[$(date +%H:%M:%S)] 💰 Step 2/5: Funding 10 agents (50 EGLD each)..."
+
+# ═══ Step 3: Fund agents (50 EGLD each) ═══
+echo "[$(date +%H:%M:%S)] 💰 Step 3/7: Funding 10 agents (50 EGLD each = 500 EGLD)..."
 npx ts-node --transpileOnly scripts/c5_setup.ts fund
-
-# ═══ Step 3: Wait and check balances ═══
 echo ""
-echo "[$(date +%H:%M:%S)] ⏳ Waiting 15s for confirmations..."
+
+# ═══ Step 4: Wait + verify balances ═══
+echo "[$(date +%H:%M:%S)] ⏳ Step 4/7: Waiting 15s for confirmations..."
 sleep 15
-echo "[$(date +%H:%M:%S)] 📊 Step 3/5: Checking agent balances..."
+echo "[$(date +%H:%M:%S)] 📊 Checking balances..."
 npx ts-node --transpileOnly scripts/c5_setup.ts status
-
-# ═══ Step 4: Register via MX-8004 ═══
 echo ""
-echo "[$(date +%H:%M:%S)] 📋 Step 4/5: Registering agents via MX-8004..."
+
+# ═══ Step 5: Register via MX-8004 ═══
+echo "[$(date +%H:%M:%S)] 📋 Step 5/7: Registering 10 agents via MX-8004..."
 npx ts-node --transpileOnly scripts/c5_register.ts
-
-# ═══ Step 5: Test TX ═══
 echo ""
-echo "[$(date +%H:%M:%S)] 🧪 Step 5/5: Testing 1 TX per agent..."
+
+# ═══ Step 6: Test TX ═══
+echo "[$(date +%H:%M:%S)] 🧪 Step 6/7: Testing 1 TX per agent on chain..."
 npx ts-node --transpileOnly scripts/c5_setup.ts test-tx
-
-# ═══ Launch agent bot ═══
 echo ""
-echo "████████████████████████████████████████████████████████████"
-echo "█  ✅ ALL SETUP COMPLETE — LAUNCHING AGENT BOT"
-echo "█  Agent will monitor admin wallet and react automatically"
+
+# ═══ Step 7: Verification summary ═══
+echo ""
+echo "██████████████████████████████████████████████████████████████"
+echo "█  ✅ ALL SETUP COMPLETE"
+echo "██████████████████████████████████████████████████████████████"
+echo ""
+echo "🔗 VERIFY YOUR AGENTS ON EXPLORER:"
+cat c5_agents.json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for w in d:
+    print(f'  Agent {w[\"index\"]}: https://bon-explorer.multiversx.com/accounts/{w[\"address\"]}')
+"
+echo ""
+echo "📊 LIVE LEADERBOARD:"
+echo "  https://bon.multiversx.com/guild-wars"
+echo ""
+echo "🖥️  DASHBOARD:"
+echo "  http://164.90.166.81:3333/c5-dashboard.html"
+echo "  → Enter ADMIN and TARGET addresses, click ▶ START"
+echo ""
+echo "🤖 ADMIN wallet (monitor):"
+echo "  https://bon-explorer.multiversx.com/accounts/$ADMIN"
+echo ""
+echo "🎯 TARGET wallet:"
+echo "  https://bon-explorer.multiversx.com/accounts/$TARGET"
+echo ""
+echo "██████████████████████████████████████████████████████████████"
+echo "█  🤖 LAUNCHING AUTONOMOUS AGENT BOT..."
+echo "█  Bot will monitor admin wallet and react automatically"
 echo "█  Press Ctrl+C to stop"
-echo "████████████████████████████████████████████████████████████"
+echo "██████████████████████████████████████████████████████████████"
 echo ""
 
+# Start bot
 npx ts-node --transpileOnly scripts/c5_agent.ts
