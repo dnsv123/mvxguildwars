@@ -42,7 +42,7 @@ const TARGET_ADDR = process.env.C5_TARGET_ADDR || "";
 
 // Polling intervals
 const MONITOR_INTERVAL_MS = 2000;   // Check admin TXs every 2s
-const SEND_INTERVAL_MS = 50;       // 50ms between TXs per agent (20 tx/s each)
+const SEND_INTERVAL_MS = 10;       // 10ms between TXs per agent (~100 tx/s each)
 const STATUS_LOG_INTERVAL_MS = 5000;
 const NONCE_VERIFY_INTERVAL_MS = 30000; // Verify nonce every 30s
 
@@ -116,6 +116,16 @@ async function gatewaySend(txJson: any): Promise<string> {
   const d: any = await res.json();
   if (d.error && d.error !== "") throw new Error(`GW: ${d.error}`);
   return d?.data?.txHash || "";
+}
+
+// Fire-and-forget: send TX without waiting for response
+function gatewayFireAndForget(txJson: any): void {
+  fetch(`${GATEWAY_URL}/transaction/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(txJson),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => { totalErrors++; });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -298,16 +308,23 @@ async function agentSendLoop(agent: AgentWallet): Promise<void> {
     // GREEN = send, RED = wait
     if (currentState === "GREEN") {
       try {
-        const txJson = await signMoveBalance(agent);
-        await gatewaySend(txJson);
-        agent.nonce++;
-        agent.sent++;
-        totalSent++;
+        // Batch: pre-sign 5 TXs then fire them all
+        const batch: any[] = [];
+        for (let b = 0; b < 5; b++) {
+          batch.push(await signMoveBalance(agent));
+          agent.nonce++;
+        }
+        // Fire all without waiting for responses
+        for (const txJson of batch) {
+          gatewayFireAndForget(txJson);
+          agent.sent++;
+          totalSent++;
+        }
       } catch (e: any) {
         agent.errors++;
         totalErrors++;
         // Re-sync nonce on error
-        if (agent.errors % 10 === 0) {
+        if (agent.errors % 20 === 0) {
           try {
             const info = await apiGet(`${API_URL}/accounts/${agent.address}`);
             agent.nonce = info.nonce;
