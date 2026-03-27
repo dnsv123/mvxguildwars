@@ -62,8 +62,7 @@ async function signAndSend(
   });
   const bytes = txComputer.computeBytesForSigning(tx);
   tx.signature = await signer.sign(bytes);
-  const json = JSON.parse(Buffer.from(bytes).toString());
-  json.signature = Buffer.from(tx.signature).toString("hex");
+  const json = tx.toPlainObject();
 
   const res = await fetch(`${GATEWAY_URL}/transaction/send`, {
     method: "POST",
