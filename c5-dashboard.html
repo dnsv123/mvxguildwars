@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🤖 C5 Agent Arena — OpenHeart Dashboard</title>
+  <title>⚔️ Agent Arena — OpenHeart Guild</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -15,481 +15,614 @@
       overflow-x: hidden;
     }
 
-    /* ═══ HEADER ═══ */
     .header {
       text-align: center;
-      padding: 24px 20px 16px;
+      padding: 20px 20px 12px;
       background: linear-gradient(180deg, #12122a 0%, #0a0a1a 100%);
       border-bottom: 1px solid #1a1a3a;
     }
     .header h1 {
       font-family: 'Press Start 2P', monospace;
-      font-size: 1.4em;
+      font-size: 1.3em;
       background: linear-gradient(135deg, #00ff87, #60efff, #a855f7);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 6px;
       animation: shimmer 3s ease-in-out infinite;
     }
     @keyframes shimmer {
       0%, 100% { filter: brightness(1); }
-      50% { filter: brightness(1.3); }
+      50% { filter: brightness(1.4); }
     }
-    .header .subtitle { color: #666; font-size: 0.85em; }
+    .header .subtitle { color: #555; font-size: 0.8em; margin-top: 4px; }
 
-    /* ═══ STATE BANNER ═══ */
+    /* STATE BANNER */
     .state-banner {
       text-align: center;
-      padding: 20px;
-      margin: 16px 20px;
-      border-radius: 16px;
+      padding: 16px;
+      margin: 12px 16px;
+      border-radius: 14px;
       font-family: 'Press Start 2P', monospace;
-      font-size: 1.8em;
-      letter-spacing: 4px;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 1.6em;
+      letter-spacing: 3px;
+      transition: all 0.3s ease;
       position: relative;
-      overflow: hidden;
     }
     .state-green {
-      background: radial-gradient(ellipse at center, #00ff8715, #00ff8705);
+      background: radial-gradient(ellipse at center, #00ff8718, #00ff8705);
       border: 2px solid #00ff87;
       color: #00ff87;
-      box-shadow: 0 0 60px #00ff8730, inset 0 0 30px #00ff8710;
+      box-shadow: 0 0 80px #00ff8730;
+      animation: greenPulse 1s ease-in-out infinite;
+    }
+    @keyframes greenPulse {
+      0%, 100% { box-shadow: 0 0 40px #00ff8720; }
+      50% { box-shadow: 0 0 80px #00ff8740; }
     }
     .state-red {
-      background: radial-gradient(ellipse at center, #ff445515, #ff445505);
+      background: radial-gradient(ellipse at center, #ff445518, #ff445505);
       border: 2px solid #ff4455;
       color: #ff4455;
-      box-shadow: 0 0 60px #ff445530, inset 0 0 30px #ff445510;
+      box-shadow: 0 0 40px #ff445520;
     }
     .state-unknown {
       background: radial-gradient(ellipse at center, #ffaa0015, #ffaa0005);
-      border: 2px solid #ffaa00;
+      border: 2px solid #ffaa0040;
       color: #ffaa00;
     }
 
-    /* ═══ STATS ═══ */
+    /* STATS */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      padding: 0 20px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      padding: 0 16px;
+      margin-bottom: 16px;
     }
     .stat-card {
       background: linear-gradient(145deg, #12122a, #16163a);
       border: 1px solid #2a2a4a;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 14px 10px;
       text-align: center;
-      transition: transform 0.2s;
     }
-    .stat-card:hover { transform: translateY(-2px); }
     .stat-card .value {
       font-family: 'Press Start 2P', monospace;
-      font-size: 1.4em;
+      font-size: 1.2em;
       color: #60efff;
     }
-    .stat-card .label { font-size: 0.75em; color: #666; margin-top: 6px; }
+    .stat-card .label { font-size: 0.7em; color: #555; margin-top: 4px; }
 
-    /* ═══ AGENT ARENA (pixel art) ═══ */
-    .arena {
-      margin: 0 20px 20px;
-      background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #1a2233 100%);
-      border: 2px solid #2a2a4a;
+    /* ═══ BATTLEFIELD ═══ */
+    .battlefield {
+      margin: 0 16px 16px;
+      background: linear-gradient(180deg, #080c15 0%, #0d1420 30%, #111a2a 60%, #162235 100%);
+      border: 2px solid #1a2a4a;
       border-radius: 16px;
       padding: 20px;
       position: relative;
-      min-height: 200px;
+      min-height: 340px;
       overflow: hidden;
     }
-    .arena-title {
+    .bf-title {
       font-family: 'Press Start 2P', monospace;
-      font-size: 0.7em;
-      color: #666;
+      font-size: 0.6em;
+      color: #334;
       margin-bottom: 16px;
-    }
-    .arena-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      justify-content: center;
+      text-align: center;
     }
 
-    /* Pixel Agent */
-    .pixel-agent {
-      width: 80px;
+    /* Ground line */
+    .ground {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #2a3a4a, #2a3a4a, transparent);
+    }
+    .ground::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 30px;
+      background: linear-gradient(180deg, transparent, #0a1018);
+    }
+
+    /* Stars */
+    .stars {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 60px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .star {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: #fff;
+      border-radius: 50%;
+      opacity: 0.4;
+      animation: twinkle 3s ease-in-out infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Tank formation */
+    .fleet-area {
+      position: absolute;
+      bottom: 40px;
+      left: 30px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-width: 55%;
+    }
+
+    /* Target area */
+    .target-area {
+      position: absolute;
+      bottom: 40px;
+      right: 30px;
+      text-align: center;
+    }
+    .target-icon {
+      width: 60px;
+      height: 60px;
+      border: 3px solid #ffaa00;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8em;
+      animation: targetPulse 2s ease-in-out infinite;
+      background: #ffaa0010;
+    }
+    @keyframes targetPulse {
+      0%, 100% { box-shadow: 0 0 10px #ffaa0020; }
+      50% { box-shadow: 0 0 30px #ffaa0040; }
+    }
+    .target-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.45em;
+      color: #ffaa00;
+      margin-top: 6px;
+    }
+
+    /* Individual tank */
+    .tank-unit {
+      width: 44px;
       text-align: center;
       position: relative;
     }
-    .pixel-body {
-      width: 48px;
-      height: 48px;
-      margin: 0 auto 6px;
+    .tank-chassis {
       position: relative;
-      image-rendering: pixelated;
-    }
-    /* Pixel art tank using CSS */
-    .tank {
-      position: relative;
-      width: 48px;
-      height: 40px;
-      margin: 4px auto;
-    }
-    .tank-body {
-      position: absolute;
-      bottom: 0;
-      left: 4px;
-      width: 40px;
-      height: 20px;
-      border-radius: 4px;
-      transition: background 0.3s;
-    }
-    .tank-turret {
-      position: absolute;
-      bottom: 16px;
-      left: 14px;
-      width: 20px;
-      height: 14px;
-      border-radius: 3px 3px 0 0;
-      transition: background 0.3s;
-    }
-    .tank-barrel {
-      position: absolute;
-      bottom: 24px;
-      left: 34px;
-      width: 14px;
-      height: 4px;
-      border-radius: 0 2px 2px 0;
-      transition: background 0.3s;
-    }
-    .tank-track {
-      position: absolute;
-      bottom: -2px;
-      left: 2px;
       width: 44px;
-      height: 6px;
-      background: #333;
+      height: 32px;
+    }
+    .t-body {
+      position: absolute;
+      bottom: 4px; left: 4px;
+      width: 36px; height: 14px;
+      border-radius: 3px;
+      transition: all 0.3s;
+    }
+    .t-turret {
+      position: absolute;
+      bottom: 14px; left: 12px;
+      width: 16px; height: 10px;
+      border-radius: 3px 3px 0 0;
+      transition: all 0.3s;
+    }
+    .t-barrel {
+      position: absolute;
+      bottom: 18px; left: 28px;
+      width: 16px; height: 3px;
+      border-radius: 0 2px 2px 0;
+      transition: all 0.3s;
+      transform-origin: left center;
+    }
+    .t-track {
+      position: absolute;
+      bottom: 0; left: 2px;
+      width: 40px; height: 5px;
+      background: #222;
       border-radius: 3px;
     }
-    .tank-track::before, .tank-track::after {
-      content: '';
-      position: absolute;
-      width: 6px; height: 6px;
-      background: #444;
-      border-radius: 50%;
-      top: 0;
+    .t-wheel { 
+      position: absolute; bottom: 0; width: 5px; height: 5px;
+      background: #333; border-radius: 50%;
     }
-    .tank-track::before { left: 2px; }
-    .tank-track::after { right: 2px; }
+    .t-w1 { left: 3px; }
+    .t-w2 { left: 14px; }
+    .t-w3 { left: 25px; }
+    .t-w4 { right: 3px; }
 
-    /* Agent colors */
-    .agent-0 .tank-body, .agent-0 .tank-turret { background: #00ff87; }
-    .agent-0 .tank-barrel { background: #00cc6a; }
-    .agent-1 .tank-body, .agent-1 .tank-turret { background: #60efff; }
-    .agent-1 .tank-barrel { background: #40c0dd; }
-    .agent-2 .tank-body, .agent-2 .tank-turret { background: #a855f7; }
-    .agent-2 .tank-barrel { background: #8844cc; }
-    .agent-3 .tank-body, .agent-3 .tank-turret { background: #f97316; }
-    .agent-3 .tank-barrel { background: #cc5500; }
-    .agent-4 .tank-body, .agent-4 .tank-turret { background: #ec4899; }
-    .agent-4 .tank-barrel { background: #cc2277; }
-    .agent-5 .tank-body, .agent-5 .tank-turret { background: #eab308; }
-    .agent-5 .tank-barrel { background: #bb8800; }
-    .agent-6 .tank-body, .agent-6 .tank-turret { background: #06b6d4; }
-    .agent-6 .tank-barrel { background: #0099bb; }
-    .agent-7 .tank-body, .agent-7 .tank-turret { background: #84cc16; }
-    .agent-7 .tank-barrel { background: #66aa00; }
-    .agent-8 .tank-body, .agent-8 .tank-turret { background: #f43f5e; }
-    .agent-8 .tank-barrel { background: #cc2244; }
-    .agent-9 .tank-body, .agent-9 .tank-turret { background: #8b5cf6; }
-    .agent-9 .tank-barrel { background: #7744dd; }
-
-    /* Animations */
-    .firing .tank-barrel {
-      animation: fire 0.15s ease-out infinite;
+    .t-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.3em;
+      color: #556;
+      margin-top: 2px;
     }
-    @keyframes fire {
+    .t-stat {
+      font-size: 0.55em;
+      color: #889;
+    }
+
+    /* Colors per tank */
+    .tc0 .t-body,.tc0 .t-turret{background:#00ff87}.tc0 .t-barrel{background:#00cc6a}
+    .tc1 .t-body,.tc1 .t-turret{background:#60efff}.tc1 .t-barrel{background:#40c0dd}
+    .tc2 .t-body,.tc2 .t-turret{background:#a855f7}.tc2 .t-barrel{background:#8844cc}
+    .tc3 .t-body,.tc3 .t-turret{background:#f97316}.tc3 .t-barrel{background:#cc5500}
+    .tc4 .t-body,.tc4 .t-turret{background:#ec4899}.tc4 .t-barrel{background:#cc2277}
+    .tc5 .t-body,.tc5 .t-turret{background:#eab308}.tc5 .t-barrel{background:#bb8800}
+    .tc6 .t-body,.tc6 .t-turret{background:#06b6d4}.tc6 .t-barrel{background:#0099bb}
+    .tc7 .t-body,.tc7 .t-turret{background:#84cc16}.tc7 .t-barrel{background:#66aa00}
+    .tc8 .t-body,.tc8 .t-turret{background:#f43f5e}.tc8 .t-barrel{background:#cc2244}
+    .tc9 .t-body,.tc9 .t-turret{background:#8b5cf6}.tc9 .t-barrel{background:#7744dd}
+
+    /* FIRING animation */
+    .tank-unit.firing .t-barrel { animation: recoil 0.12s ease-out infinite; }
+    @keyframes recoil {
       0% { transform: translateX(0); }
-      50% { transform: translateX(4px); }
+      40% { transform: translateX(5px); }
       100% { transform: translateX(0); }
     }
-    .firing .tank-body {
-      animation: rumble 0.1s ease-in-out infinite;
-    }
+    .tank-unit.firing .t-body { animation: rumble 0.08s ease-in-out infinite; }
     @keyframes rumble {
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-1px); }
     }
-    .idle .tank-body, .idle .tank-turret, .idle .tank-barrel {
-      filter: brightness(0.4);
+    .tank-unit.firing .t-track { animation: roll 0.3s linear infinite; }
+    @keyframes roll {
+      0% { background: #222; }
+      50% { background: #2a2a2a; }
+    }
+
+    .tank-unit.idle .t-body, .tank-unit.idle .t-turret, .tank-unit.idle .t-barrel {
+      filter: brightness(0.35);
     }
 
     /* Muzzle flash */
-    .muzzle-flash {
+    .muzzle {
       position: absolute;
-      bottom: 22px;
-      left: 46px;
-      width: 8px;
-      height: 8px;
+      bottom: 17px; left: 44px;
+      width: 10px; height: 10px;
       border-radius: 50%;
-      background: #ffff00;
-      box-shadow: 0 0 8px #ffff00, 0 0 16px #ff8800;
-      animation: flash 0.2s ease-out infinite;
-      display: none;
+      background: radial-gradient(circle, #ffff00, #ff8800, transparent);
+      box-shadow: 0 0 12px #ffff00, 0 0 24px #ff8800;
+      opacity: 0;
+      pointer-events: none;
     }
-    .firing .muzzle-flash { display: block; }
-    @keyframes flash {
+    .tank-unit.firing .muzzle {
+      animation: muzzleFlash 0.15s ease-out infinite;
+    }
+    @keyframes muzzleFlash {
       0% { opacity: 1; transform: scale(1); }
-      100% { opacity: 0; transform: scale(2); }
+      100% { opacity: 0; transform: scale(2.5); }
     }
 
-    /* Projectiles */
-    .projectile-trail {
+    /* Projectiles flying across battlefield */
+    .projectile-layer {
       position: absolute;
-      top: 50%;
-      right: -200px;
-      width: 200px;
-      height: 2px;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
       overflow: hidden;
-      display: none;
     }
-    .firing .projectile-trail { display: block; }
-
-    .agent-label {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 0.45em;
-      color: #888;
-      margin-top: 4px;
+    .projectile {
+      position: absolute;
+      width: 6px; height: 2px;
+      background: linear-gradient(90deg, #ffff00, #ff6600);
+      border-radius: 1px;
+      box-shadow: 0 0 6px #ffaa00;
+      animation: fly 0.6s linear forwards;
     }
-    .agent-stat {
-      font-size: 0.7em;
-      color: #aaa;
-      margin-top: 2px;
-    }
-    .agent-bal {
-      font-size: 0.65em;
-      color: #555;
+    @keyframes fly {
+      0% { transform: translateX(0); opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translateX(300px); opacity: 0; }
     }
 
-    /* ═══ TWO-COLUMN LAYOUT ═══ */
+    /* Explosion at target */
+    .explosion {
+      position: absolute;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffff00, #ff6600, transparent);
+      animation: explode 0.4s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes explode {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(3); opacity: 0; }
+    }
+
+    /* CONFIG BAR */
+    .config-bar {
+      display: flex; gap: 6px; padding: 10px 16px;
+      background: #0d0d20; border-bottom: 1px solid #1a1a3a;
+      flex-wrap: wrap; align-items: center;
+    }
+    .config-bar label { font-size: 0.7em; color: #555; }
+    .config-bar input {
+      font-family: monospace; font-size: 0.75em; padding: 5px 8px;
+      border-radius: 6px; border: 1px solid #2a2a4a;
+      background: #1a1a3a; color: #e0e0f0; flex: 1; min-width: 120px;
+    }
+    .btn {
+      font-family: 'Press Start 2P', monospace; font-size: 0.5em;
+      padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer;
+    }
+    .btn-go { background: linear-gradient(135deg, #00ff87, #60efff); color: #0a0a1a; }
+    .btn-sim { background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; }
+    .btn:hover { transform: scale(1.05); }
+
+    /* COLUMNS */
     .columns {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      padding: 0 20px;
-      margin-bottom: 20px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; padding: 0 16px; margin-bottom: 16px;
     }
     @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
 
-    /* ═══ COMMAND LOG ═══ */
     .panel {
-      background: #12122a;
-      border: 1px solid #2a2a4a;
-      border-radius: 12px;
-      padding: 16px;
+      background: #12122a; border: 1px solid #2a2a4a;
+      border-radius: 10px; padding: 14px;
     }
     .panel-title {
       font-family: 'Press Start 2P', monospace;
-      font-size: 0.6em;
-      color: #60efff;
-      margin-bottom: 12px;
+      font-size: 0.55em; color: #60efff; margin-bottom: 10px;
     }
-    .command-log {
-      max-height: 250px;
-      overflow-y: auto;
-    }
+    .command-log { max-height: 200px; overflow-y: auto; }
     .log-entry {
-      padding: 6px 0;
-      border-bottom: 1px solid #1a1a2a;
-      font-size: 0.82em;
-      display: flex;
-      gap: 8px;
-      align-items: center;
+      padding: 4px 0; border-bottom: 1px solid #1a1a2a;
+      font-size: 0.8em; display: flex; gap: 6px;
     }
-    .log-entry .time { color: #555; font-family: monospace; min-width: 70px; font-size: 0.85em; }
-    .log-entry .cmd { color: #bbb; flex: 1; }
+    .log-entry .time { color: #444; font-family: monospace; min-width: 60px; font-size: 0.85em; }
+    .log-entry .cmd { color: #aaa; flex: 1; }
     .log-green { color: #00ff87 !important; font-weight: 700; }
     .log-red { color: #ff4455 !important; font-weight: 700; }
 
-    /* ═══ CONFIG ═══ */
-    .config-bar {
-      display: flex;
-      gap: 8px;
-      padding: 12px 20px;
-      background: #0d0d20;
-      border-bottom: 1px solid #1a1a3a;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .config-bar label { font-size: 0.75em; color: #666; }
-    .config-bar input {
-      font-family: monospace;
-      font-size: 0.8em;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid #2a2a4a;
-      background: #1a1a3a;
-      color: #e0e0f0;
-      flex: 1;
-      min-width: 150px;
-    }
-    .btn {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 0.55em;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-go {
-      background: linear-gradient(135deg, #00ff87, #60efff);
-      color: #0a0a1a;
-    }
-    .btn-go:hover { transform: scale(1.05); box-shadow: 0 0 20px #00ff8740; }
-
     .footer {
-      text-align: center;
-      padding: 16px;
-      color: #333;
-      font-size: 0.75em;
-      font-family: 'Press Start 2P', monospace;
+      text-align: center; padding: 12px; color: #222;
+      font-size: 0.6em; font-family: 'Press Start 2P', monospace;
     }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: #0a0a1a; }
-    ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>⚔️ AGENT ARENA</h1>
-    <div class="subtitle">Challenge 5 — Red Light / Green Light — 💚 OpenHeart Guild</div>
+    <div class="subtitle">C5 — Red Light / Green Light — 💚 OpenHeart Guild</div>
   </div>
 
-  <!-- CONFIG BAR -->
   <div class="config-bar">
     <label>ADMIN:</label>
-    <input type="text" id="adminAddr" placeholder="erd1... (announced at 15:00)">
+    <input type="text" id="adminAddr" placeholder="erd1... (set at 15:00 UTC)">
     <label>TARGET:</label>
-    <input type="text" id="targetAddr" placeholder="erd1... (announced at 15:00)">
+    <input type="text" id="targetAddr" placeholder="erd1... (set at 15:00 UTC)">
     <label>API:</label>
-    <input type="text" id="apiUrl" value="https://api.battleofnodes.com" style="max-width:250px;">
+    <input type="text" id="apiUrl" value="https://api.battleofnodes.com" style="max-width:220px;">
     <button class="btn btn-go" onclick="startMonitoring()">▶ START</button>
+    <button class="btn btn-sim" onclick="startSimulation()">🎮 SIMULATE</button>
   </div>
 
-  <!-- STATE BANNER -->
-  <div id="stateBanner" class="state-banner state-unknown">
-    ⏳ STANDBY
-  </div>
+  <div id="stateBanner" class="state-banner state-unknown">⏳ STANDBY</div>
 
-  <!-- STATS -->
   <div class="stats-grid">
-    <div class="stat-card">
-      <div class="value" id="totalSent">0</div>
-      <div class="label">✅ Permitted TXs</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="score">0</div>
-      <div class="label">🏆 Est. Score</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="txPerSec">0.0</div>
-      <div class="label">⚡ TX/s</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="errors">0</div>
-      <div class="label">❌ Errors</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="commandCount">0</div>
-      <div class="label">📡 Commands</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="timeLeft">--:--</div>
-      <div class="label">⏰ Time Left</div>
-    </div>
+    <div class="stat-card"><div class="value" id="totalSent">0</div><div class="label">✅ Permitted TXs</div></div>
+    <div class="stat-card"><div class="value" id="score">0</div><div class="label">🏆 Score</div></div>
+    <div class="stat-card"><div class="value" id="txPerSec">0.0</div><div class="label">⚡ TX/s</div></div>
+    <div class="stat-card"><div class="value" id="errors">0</div><div class="label">❌ Errors</div></div>
+    <div class="stat-card"><div class="value" id="commandCount">0</div><div class="label">📡 Commands</div></div>
+    <div class="stat-card"><div class="value" id="timeLeft">--:--</div><div class="label">⏰ Round</div></div>
   </div>
 
-  <!-- AGENT ARENA -->
-  <div class="arena">
-    <div class="arena-title">🎮 AGENT FLEET</div>
-    <div class="arena-grid" id="arenaGrid"></div>
+  <!-- BATTLEFIELD -->
+  <div class="battlefield" id="battlefield">
+    <div class="bf-title">⚔️ BATTLEFIELD</div>
+    <div class="stars" id="starsLayer"></div>
+    <div class="fleet-area" id="fleetArea"></div>
+    <div class="target-area">
+      <div class="target-icon" id="targetIcon">🎯</div>
+      <div class="target-label">TARGET</div>
+    </div>
+    <div class="ground"></div>
+    <div class="projectile-layer" id="projectileLayer"></div>
   </div>
 
-  <!-- COLUMNS: LOG + TIMELINE -->
   <div class="columns">
     <div class="panel">
-      <div class="panel-title">📡 COMMAND LOG</div>
+      <div class="panel-title">📡 COMMAND FEED</div>
       <div class="command-log" id="commandLog">
-        <div class="log-entry"><span class="time">--:--</span><span class="cmd" style="color:#555;">Awaiting admin commands...</span></div>
+        <div class="log-entry"><span class="time">--:--</span><span class="cmd" style="color:#333;">Waiting for commands...</span></div>
       </div>
     </div>
     <div class="panel">
       <div class="panel-title">📊 STATE TIMELINE</div>
-      <canvas id="timelineCanvas" width="400" height="200" style="width:100%;border-radius:8px;background:#0d0d20;"></canvas>
+      <canvas id="timelineCanvas" width="400" height="160" style="width:100%;border-radius:6px;background:#0d0d20;"></canvas>
     </div>
   </div>
 
-  <div class="footer">💚 OPENHEART GUILD — POWERED BY GEMINI AI 🤖</div>
+  <div class="footer">💚 OPENHEART GUILD — GPT-4o-mini NLP — AGENT ARENA 2026 🤖</div>
 
   <script>
-    const COLORS = ['#00ff87','#60efff','#a855f7','#f97316','#ec4899','#eab308','#06b6d4','#84cc16','#f43f5e','#8b5cf6'];
     let apiUrl = 'https://api.battleofnodes.com';
     let adminAddr = '', targetAddr = '';
-    let monitoring = false, lastTxHash = '';
+    let monitoring = false, simulating = false, lastTxHash = '';
     let state = 'UNKNOWN', commands = [];
-    let agents = [];
-    let timeline = []; // {time, state}
+    let agents = [], timeline = [];
+    let totalGreen = 0, totalRed = 0, totalErr = 0;
+    let lastCountTime = Date.now(), lastCount = 0;
 
-    // Build pixel tanks
-    function buildArena(count) {
-      const grid = document.getElementById('arenaGrid');
-      grid.innerHTML = '';
+    // Create stars
+    (function createStars() {
+      const layer = document.getElementById('starsLayer');
+      for (let i = 0; i < 60; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        s.style.left = Math.random() * 100 + '%';
+        s.style.top = Math.random() * 100 + '%';
+        s.style.animationDelay = Math.random() * 3 + 's';
+        s.style.width = s.style.height = (Math.random() * 2 + 1) + 'px';
+        layer.appendChild(s);
+      }
+    })();
+
+    function buildFleet(count) {
+      const area = document.getElementById('fleetArea');
+      area.innerHTML = '';
       for (let i = 0; i < count; i++) {
         const div = document.createElement('div');
-        div.className = `pixel-agent agent-${i} idle`;
-        div.id = `agent-${i}`;
+        div.className = `tank-unit tc${i} idle`;
+        div.id = `tank-${i}`;
         div.innerHTML = `
-          <div class="tank">
-            <div class="muzzle-flash"></div>
-            <div class="tank-barrel"></div>
-            <div class="tank-turret"></div>
-            <div class="tank-body"></div>
-            <div class="tank-track"></div>
+          <div class="tank-chassis">
+            <div class="muzzle"></div>
+            <div class="t-barrel"></div>
+            <div class="t-turret"></div>
+            <div class="t-body"></div>
+            <div class="t-track"></div>
+            <div class="t-wheel t-w1"></div>
+            <div class="t-wheel t-w2"></div>
+            <div class="t-wheel t-w3"></div>
+            <div class="t-wheel t-w4"></div>
           </div>
-          <div class="agent-label">A-${String(i).padStart(2,'0')}</div>
-          <div class="agent-stat" id="aStat${i}">0 tx</div>
-          <div class="agent-bal" id="aBal${i}">-- EGLD</div>
+          <div class="t-label">A${i}</div>
+          <div class="t-stat" id="ts${i}">0 tx</div>
         `;
-        grid.appendChild(div);
+        area.appendChild(div);
       }
     }
 
-    function setAgentState(isFiring) {
+    function setFleetState(firing) {
       for (let i = 0; i < 10; i++) {
-        const el = document.getElementById(`agent-${i}`);
+        const el = document.getElementById(`tank-${i}`);
         if (!el) continue;
-        el.className = `pixel-agent agent-${i} ${isFiring ? 'firing' : 'idle'}`;
+        el.className = `tank-unit tc${i} ${firing ? 'firing' : 'idle'}`;
       }
     }
 
+    function spawnProjectile() {
+      const layer = document.getElementById('projectileLayer');
+      const p = document.createElement('div');
+      p.className = 'projectile';
+      p.style.left = (Math.random() * 40 + 15) + '%';
+      p.style.top = (Math.random() * 50 + 25) + '%';
+      layer.appendChild(p);
+      setTimeout(() => {
+        // Explosion at target
+        const ex = document.createElement('div');
+        ex.className = 'explosion';
+        ex.style.right = (Math.random() * 10 + 12) + '%';
+        ex.style.top = (Math.random() * 30 + 35) + '%';
+        layer.appendChild(ex);
+        setTimeout(() => ex.remove(), 400);
+      }, 500);
+      setTimeout(() => p.remove(), 700);
+    }
+
+    let projectileInterval = null;
+    function setProjectiles(on) {
+      if (projectileInterval) clearInterval(projectileInterval);
+      if (on) {
+        projectileInterval = setInterval(spawnProjectile, 150);
+      }
+    }
+
+    // ═══ SIMULATION ═══
+    const SIM_COMMANDS = [
+      { delay: 2000, text: "Green light! Go go go!", expect: "GREEN" },
+      { delay: 8000, text: "Hold your fire! Red light!", expect: "RED" },
+      { delay: 5000, text: "Don't stop now! Keep going!", expect: "GREEN" },
+      { delay: 7000, text: "Freeze! Everyone stand down.", expect: "RED" },
+      { delay: 4000, text: "All systems go! Full speed ahead!", expect: "GREEN" },
+      { delay: 6000, text: "Pump the brakes, take a breather.", expect: "RED" },
+      { delay: 5000, text: "Stop... just kidding! Fire away!", expect: "GREEN" },
+      { delay: 10000, text: "That's enough. Red light.", expect: "RED" },
+    ];
+
+    function startSimulation() {
+      simulating = true;
+      buildFleet(10);
+      let idx = 0;
+      let simTotalGreen = 0;
+
+      function nextCommand() {
+        if (idx >= SIM_COMMANDS.length) {
+          addLog("SIM COMPLETE", "DONE");
+          simulating = false;
+          setFleetState(false);
+          setProjectiles(false);
+          return;
+        }
+        const cmd = SIM_COMMANDS[idx++];
+        setTimeout(() => {
+          const newState = cmd.expect;
+          state = newState;
+          commands.unshift({ time: new Date().toISOString().slice(11,19), text: cmd.text, result: newState });
+          timeline.push({ time: Date.now(), state: newState });
+          addLog(cmd.text, newState);
+          updateUI();
+
+          if (newState === 'GREEN') {
+            setFleetState(true);
+            setProjectiles(true);
+            // Simulate TX count
+            const simInterval = setInterval(() => {
+              if (state !== 'GREEN') { clearInterval(simInterval); return; }
+              simTotalGreen += 10;
+              totalGreen = simTotalGreen;
+              document.getElementById('totalSent').textContent = totalGreen;
+              document.getElementById('score').textContent = totalGreen - totalRed;
+              document.getElementById('txPerSec').textContent = '~200';
+              for (let i = 0; i < 10; i++) {
+                const s = document.getElementById(`ts${i}`);
+                if (s) s.textContent = Math.floor(simTotalGreen/10) + ' tx';
+              }
+            }, 50);
+          } else {
+            setFleetState(false);
+            setProjectiles(false);
+            document.getElementById('txPerSec').textContent = '0';
+          }
+
+          nextCommand();
+        }, cmd.delay);
+      }
+      nextCommand();
+    }
+
+    function addLog(text, result) {
+      const time = new Date().toISOString().slice(11,19);
+      document.getElementById('commandCount').textContent = commands.length;
+      const logEl = document.getElementById('commandLog');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="time">${time}</span>
+        <span class="cmd">${text.substring(0,50)}</span>
+        <span class="${result === 'GREEN' ? 'log-green' : result === 'RED' ? 'log-red' : ''}">${result === 'GREEN' ? '🟢' : '🔴'} ${result}</span>
+      `;
+      logEl.prepend(entry);
+    }
+
+    // ═══ LIVE MONITORING ═══
     function startMonitoring() {
       adminAddr = document.getElementById('adminAddr').value.trim();
       targetAddr = document.getElementById('targetAddr').value.trim();
       apiUrl = document.getElementById('apiUrl').value.trim() || apiUrl;
-      if (!adminAddr || !targetAddr) { alert('Set both Admin and Target addresses!'); return; }
+      if (!adminAddr || !targetAddr) { alert('Set Admin + Target addresses!'); return; }
       monitoring = true;
-      buildArena(10);
+      buildFleet(10);
       pollAdmin();
       pollAgents();
-      updateTimer();
     }
-
-    // Init arena on load
-    buildArena(10);
 
     async function pollAdmin() {
       if (!monitoring) return;
@@ -497,135 +630,89 @@
         const res = await fetch(`${apiUrl}/accounts/${adminAddr}/transactions?receiver=${targetAddr}&size=10&order=desc`);
         const txs = await res.json();
         if (Array.isArray(txs)) {
-          for (const tx of txs.reverse()) {
-            if (tx.txHash === lastTxHash) continue;
+          for (const tx of txs) {
+            if (tx.txHash === lastTxHash) break;
             const data = atob(tx.data || '');
             if (!data) continue;
-
             const lower = data.toLowerCase();
-            const greenSignals = ['go','start','begin','green','fire','send','resume','run','launch','proceed','activate','engage','release','unleash','continue'];
-            const redSignals = ['stop','halt','red','freeze','wait','pause','cease','hold','end','brake','suspend','terminate','abort','deactivate','stand down'];
-
-            const hasNeg = /\b(don'?t|do not|never|no)\b/i.test(lower);
-            let gScore = 0, rScore = 0;
-            for (const w of greenSignals) if (lower.includes(w)) gScore++;
-            for (const w of redSignals) if (lower.includes(w)) rScore++;
-            if (hasNeg) [gScore, rScore] = [rScore, gScore];
-
-            const newState = gScore > rScore ? 'GREEN' : rScore > gScore ? 'RED' : state;
-            commands.unshift({ time: new Date().toISOString().slice(11,19), text: data, result: newState });
-            if (commands.length > 100) commands.pop();
-
-            if (newState !== state) {
-              state = newState;
-              timeline.push({ time: Date.now(), state });
+            if (/green\s*light/i.test(lower)) { setState('GREEN', data); }
+            else if (/red\s*light/i.test(lower)) { setState('RED', data); }
+            else {
+              const gw = ['go','start','begin','fire','send','resume','run','launch','proceed','activate','engage','release','unleash','continue','rock','party','blazing','ahead'];
+              const rw = ['stop','halt','pause','freeze','wait','cease','hold','block','suspend','terminate','abort','end','brake','chill','refrain','stand down','pull over'];
+              const neg = /\b(don'?t|do not|never|no|not)\b/i.test(lower);
+              let g=0,r=0;
+              for(const w of gw) if(lower.includes(w)) g++;
+              for(const w of rw) if(lower.includes(w)) r++;
+              if(neg) [g,r]=[r,g];
+              setState(g>r?'GREEN':r>g?'RED':state, data);
             }
             lastTxHash = tx.txHash;
+            break;
           }
-          updateUI();
         }
-      } catch (e) { console.error('Poll err:', e); }
+      } catch(e) { console.error('Poll:', e); }
       setTimeout(pollAdmin, 2000);
+    }
+
+    function setState(newState, text) {
+      if (newState !== state) timeline.push({ time: Date.now(), state: newState });
+      state = newState;
+      commands.unshift({ time: new Date().toISOString().slice(11,19), text, result: newState });
+      addLog(text, newState);
+      updateUI();
+      setFleetState(newState === 'GREEN');
+      setProjectiles(newState === 'GREEN');
     }
 
     async function pollAgents() {
       if (!monitoring) return;
-      try {
-        const res = await fetch(`c5_agents.json`);
-        if (res.ok) agents = await res.json();
-      } catch {}
-
-      for (let i = 0; i < agents.length; i++) {
+      for (let i = 0; i < 10; i++) {
         try {
-          const res = await fetch(`${apiUrl}/accounts/${agents[i].address}`);
-          const d = await res.json();
-          const bal = (Number(BigInt(d.balance || '0')) / 1e18).toFixed(2);
-          const stat = document.getElementById(`aStat${i}`);
-          const balEl = document.getElementById(`aBal${i}`);
-          if (stat) stat.textContent = `n:${d.nonce}`;
-          if (balEl) balEl.textContent = `${bal} E`;
+          const r = await fetch(`${apiUrl}/accounts/${agents[i]?.address}`);
+          const d = await r.json();
+          const s = document.getElementById(`ts${i}`);
+          if (s) s.textContent = `n:${d.nonce}`;
         } catch {}
       }
-      setTimeout(pollAgents, 8000);
-    }
-
-    function updateTimer() {
-      const r1End = new Date('2026-03-27T16:30:00Z').getTime();
-      const r2Start = new Date('2026-03-27T17:00:00Z').getTime();
-      const r2End = new Date('2026-03-27T17:30:00Z').getTime();
-      const now = Date.now();
-
-      let remaining;
-      if (now < r1End) remaining = r1End - now;
-      else if (now < r2Start) remaining = 0; // break
-      else if (now < r2End) remaining = r2End - now;
-      else remaining = 0;
-
-      const m = Math.floor(remaining / 60000);
-      const s = Math.floor((remaining % 60000) / 1000);
-      document.getElementById('timeLeft').textContent = `${m}:${String(s).padStart(2,'0')}`;
-      setTimeout(updateTimer, 1000);
+      setTimeout(pollAgents, 10000);
     }
 
     function updateUI() {
-      // State banner
       const banner = document.getElementById('stateBanner');
       if (state === 'GREEN') {
         banner.textContent = '🟢 GREEN LIGHT — FIRE!';
         banner.className = 'state-banner state-green';
-        setAgentState(true);
       } else if (state === 'RED') {
         banner.textContent = '🔴 RED LIGHT — HOLD!';
         banner.className = 'state-banner state-red';
-        setAgentState(false);
       } else {
         banner.textContent = '⏳ STANDBY';
         banner.className = 'state-banner state-unknown';
-        setAgentState(false);
       }
-
-      document.getElementById('commandCount').textContent = commands.length;
-
-      // Command log
-      const logEl = document.getElementById('commandLog');
-      logEl.innerHTML = commands.slice(0, 30).map(c => `
-        <div class="log-entry">
-          <span class="time">${c.time}</span>
-          <span class="cmd">${c.text.substring(0, 50)}</span>
-          <span class="${c.result === 'GREEN' ? 'log-green' : 'log-red'}">${c.result === 'GREEN' ? '🟢' : '🔴'} ${c.result}</span>
-        </div>
-      `).join('');
-
-      // Timeline canvas
       drawTimeline();
     }
 
     function drawTimeline() {
-      const canvas = document.getElementById('timelineCanvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = canvas.offsetWidth * 2;
-      canvas.height = 200;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (timeline.length < 2) return;
-
-      const startTime = timeline[0].time;
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
+      const c = document.getElementById('timelineCanvas');
+      const ctx = c.getContext('2d');
+      c.width = c.offsetWidth * 2; c.height = 160;
+      ctx.clearRect(0, 0, c.width, c.height);
+      if (timeline.length < 1) return;
+      const t0 = timeline[0].time, tN = Date.now(), dur = tN - t0 || 1;
       for (let i = 0; i < timeline.length; i++) {
-        const entry = timeline[i];
-        const next = timeline[i + 1];
-        const x1 = ((entry.time - startTime) / duration) * canvas.width;
-        const x2 = next ? ((next.time - startTime) / duration) * canvas.width : canvas.width;
-
-        ctx.fillStyle = entry.state === 'GREEN' ? '#00ff8730' : '#ff445530';
-        ctx.fillRect(x1, 0, x2 - x1, canvas.height);
-
-        ctx.fillStyle = entry.state === 'GREEN' ? '#00ff87' : '#ff4455';
-        ctx.fillRect(x1, 0, 2, canvas.height);
+        const e = timeline[i], nx = timeline[i+1];
+        const x1 = ((e.time - t0) / dur) * c.width;
+        const x2 = nx ? ((nx.time - t0) / dur) * c.width : c.width;
+        ctx.fillStyle = e.state === 'GREEN' ? '#00ff8725' : '#ff445525';
+        ctx.fillRect(x1, 0, x2-x1, c.height);
+        ctx.fillStyle = e.state === 'GREEN' ? '#00ff87' : '#ff4455';
+        ctx.fillRect(x1, 0, 2, c.height);
       }
     }
+
+    // Init fleet
+    buildFleet(10);
   </script>
 </body>
 </html>
