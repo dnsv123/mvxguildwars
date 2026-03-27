@@ -288,9 +288,7 @@ async function signMoveBalance(agent: AgentWallet): Promise<any> {
 
   const bytes = txComputer.computeBytesForSigning(tx);
   tx.signature = await agent.signer.sign(bytes);
-  const json = JSON.parse(Buffer.from(bytes).toString());
-  json.signature = Buffer.from(tx.signature).toString("hex");
-  return json;
+  return tx.toPlainObject();
 }
 
 async function agentSendLoop(agent: AgentWallet): Promise<void> {

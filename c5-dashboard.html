@@ -165,31 +165,35 @@
     /* Target area */
     .target-area {
       position: absolute;
-      bottom: 40px;
-      right: 30px;
+      bottom: 20px;
+      right: 20px;
       text-align: center;
     }
     .target-icon {
-      width: 60px;
-      height: 60px;
-      border: 3px solid #ffaa00;
-      border-radius: 50%;
+      width: 120px;
+      height: 140px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.8em;
       animation: targetPulse 2s ease-in-out infinite;
-      background: #ffaa0010;
+      position: relative;
+    }
+    .target-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 0 10px #ff660080) drop-shadow(0 0 20px #ff440040);
     }
     @keyframes targetPulse {
-      0%, 100% { box-shadow: 0 0 10px #ffaa0020; }
-      50% { box-shadow: 0 0 30px #ffaa0040; }
+      0%, 100% { filter: drop-shadow(0 0 8px #ff660040); }
+      50% { filter: drop-shadow(0 0 25px #ff660080) drop-shadow(0 0 40px #ff440060); }
     }
     .target-label {
       font-family: 'Press Start 2P', monospace;
       font-size: 0.45em;
-      color: #ffaa00;
-      margin-top: 6px;
+      color: #ff6600;
+      margin-top: 2px;
+      text-shadow: 0 0 8px #ff660080;
     }
 
     /* Individual tank */
@@ -429,8 +433,8 @@
     <div class="stars" id="starsLayer"></div>
     <div class="fleet-area" id="fleetArea"></div>
     <div class="target-area">
-      <div class="target-icon" id="targetIcon">🎯</div>
-      <div class="target-label">TARGET</div>
+      <div class="target-icon" id="targetIcon"><img src="smarugon_target.png" alt="Smarugon"></div>
+      <div class="target-label">🔥 SMARUGON 🔥</div>
     </div>
     <div class="ground"></div>
     <div class="projectile-layer" id="projectileLayer"></div>
