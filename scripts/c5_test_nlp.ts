@@ -88,7 +88,7 @@ async function runTests() {
   }
 
   const genAI = new GoogleGenerativeAI(geminiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
   let correct = 0;
   let failed = 0;
   const failures: { input: string; expected: string; got: string }[] = [];
