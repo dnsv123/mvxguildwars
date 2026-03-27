@@ -128,6 +128,16 @@ function gatewayFireAndForget(txJson: any): void {
   }).catch(() => { totalErrors++; });
 }
 
+// BULK send: send multiple TXs in one HTTP request
+function gatewayBulkSend(txJsonArray: any[]): void {
+  fetch(`${GATEWAY_URL}/transaction/send-multiple`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(txJsonArray),
+    signal: AbortSignal.timeout(8000),
+  }).catch(() => { totalErrors += txJsonArray.length; });
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  NLP — Classify admin commands using OpenAI
 // ═══════════════════════════════════════════════════════════════
@@ -308,18 +318,16 @@ async function agentSendLoop(agent: AgentWallet): Promise<void> {
     // GREEN = send, RED = wait
     if (currentState === "GREEN") {
       try {
-        // Batch: pre-sign 5 TXs then fire them all
+        // Batch: pre-sign 20 TXs then bulk send in ONE request
         const batch: any[] = [];
-        for (let b = 0; b < 5; b++) {
+        for (let b = 0; b < 20; b++) {
           batch.push(await signMoveBalance(agent));
           agent.nonce++;
         }
-        // Fire all without waiting for responses
-        for (const txJson of batch) {
-          gatewayFireAndForget(txJson);
-          agent.sent++;
-          totalSent++;
-        }
+        // BULK: send all 20 in single HTTP request
+        gatewayBulkSend(batch);
+        agent.sent += batch.length;
+        totalSent += batch.length;
       } catch (e: any) {
         agent.errors++;
         totalErrors++;
