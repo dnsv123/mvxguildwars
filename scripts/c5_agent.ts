@@ -386,7 +386,7 @@ async function main() {
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     const genAI = new GoogleGenerativeAI(geminiKey);
-    gemini = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    gemini = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     log("✅", "Gemini API configured — LLM classification active");
   } else {
     log("⚠️", "No GEMINI_API_KEY — using keyword fallback ONLY");
