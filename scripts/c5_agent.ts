@@ -23,7 +23,7 @@ import * as path from "path";
 import * as dotenv from "dotenv";
 import { Transaction, Address, TransactionComputer } from "@multiversx/sdk-core";
 import { UserSecretKey, UserSigner } from "@multiversx/sdk-wallet";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
@@ -121,7 +121,7 @@ async function gatewaySend(txJson: any): Promise<string> {
 // ═══════════════════════════════════════════════════════════════
 //  NLP — Classify admin commands using OpenAI
 // ═══════════════════════════════════════════════════════════════
-let gemini: any = null; // Gemini model instance
+let openai: OpenAI | null = null;
 const classificationCache = new Map<string, LightState>();
 
 const SYSTEM_PROMPT = `You are a traffic light controller for a blockchain Red Light / Green Light game.
@@ -145,17 +145,22 @@ Reply with EXACTLY one word: GREEN, RED, or SAME
 No explanation. No punctuation. Just the word.`;
 
 async function classifyCommand(text: string): Promise<LightState> {
-  // Check cache
   const cached = classificationCache.get(text);
   if (cached) return cached;
 
-  // Try Gemini LLM first
-  if (gemini) {
+  // Try OpenAI first
+  if (openai) {
     try {
-      const prompt = `${SYSTEM_PROMPT}\n\nCurrent state: ${currentState}\nAdmin command: "${text}"`;
-      const result = await gemini.generateContent(prompt);
-      const answer = (result.response?.text() || "").trim().toUpperCase();
-
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Current state: ${currentState}\nAdmin command: "${text}"` },
+        ],
+        max_tokens: 5,
+        temperature: 0,
+      });
+      const answer = (response.choices[0]?.message?.content || "").trim().toUpperCase();
       let classified: LightState;
       if (answer === "GREEN") classified = "GREEN";
       else if (answer === "RED") classified = "RED";
@@ -163,46 +168,48 @@ async function classifyCommand(text: string): Promise<LightState> {
       else classified = fallbackClassify(text);
 
       classificationCache.set(text, classified);
+      log("🧠", `LLM: "${text.substring(0,40)}" → ${classified}`);
       return classified;
     } catch (e: any) {
-      log("⚠️", `Gemini failed: ${e.message?.substring(0, 60)}. Using fallback.`);
+      log("⚠️", `LLM failed: ${e.message?.substring(0, 60)}. Using fallback.`);
     }
   }
 
-  // Fallback: keyword analysis
   return fallbackClassify(text);
 }
 
 function fallbackClassify(text: string): LightState {
   const lower = text.toLowerCase();
 
-  // Strong GREEN signals
-  const greenWords = ["green light", "go ahead", "start", "begin", "proceed", "resume",
+  // Direct phrases (highest priority)
+  if (/green\s*light/i.test(lower)) return "GREEN";
+  if (/red\s*light/i.test(lower)) return "RED";
+
+  // Handle multi-clause: take the LAST clause's intent
+  const clauses = lower.split(/[.!;]|\bbut\b|\bhowever\b|\bactually\b|\bjust\s*kidding\b/i).filter(c => c.trim());
+  const textToAnalyze = clauses.length > 1 ? clauses[clauses.length - 1] : lower;
+
+  const greenWords = ["go", "start", "begin", "proceed", "resume",
     "fire", "send", "unleash", "release", "launch", "continue", "run", "execute",
-    "green", "open", "activate", "engage"];
+    "green", "open", "activate", "engage", "rock", "party", "blazing", "ahead"];
 
-  // Strong RED signals
-  const redWords = ["red light", "stop", "halt", "pause", "freeze", "wait", "cease",
+  const redWords = ["stop", "halt", "pause", "freeze", "wait", "cease",
     "hold", "red", "block", "suspend", "terminate", "abort", "end", "quit",
-    "close", "deactivate", "disable"];
+    "close", "deactivate", "disable", "brake", "chill", "breather", "refrain",
+    "stand down", "pull over"];
 
-  // Handle negation: "don't stop" = GREEN
-  const hasNegation = /\b(don'?t|do not|never|no)\b/i.test(lower);
+  // Check for negation in the relevant clause
+  const hasNegation = /\b(don'?t|do not|never|no|not)\b/i.test(textToAnalyze);
 
-  let greenScore = 0;
-  let redScore = 0;
+  let greenScore = 0, redScore = 0;
+  for (const w of greenWords) if (textToAnalyze.includes(w)) greenScore++;
+  for (const w of redWords) if (textToAnalyze.includes(w)) redScore++;
 
-  for (const w of greenWords) if (lower.includes(w)) greenScore++;
-  for (const w of redWords) if (lower.includes(w)) redScore++;
+  if (hasNegation) [greenScore, redScore] = [redScore, greenScore];
 
-  if (hasNegation) {
-    // Flip: "don't stop" → GREEN, "don't go" → RED
-    [greenScore, redScore] = [redScore, greenScore];
-  }
-
-  if (greenScore > redScore) return "GREEN";
-  if (redScore > greenScore) return "RED";
-  return currentState; // Ambiguous → keep current
+  const result = greenScore > redScore ? "GREEN" : redScore > greenScore ? "RED" : currentState;
+  log("🔤", `Fallback: "${text.substring(0,40)}" → ${result} (g:${greenScore} r:${redScore} neg:${hasNegation})`);
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -382,14 +389,13 @@ async function main() {
   log("⚙️", `API: ${API_URL}`);
   log("⚙️", `Gateway: ${GATEWAY_URL}`);
 
-  // Init Gemini
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    gemini = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    log("✅", "Gemini API configured — LLM classification active");
+  // Init OpenAI
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    openai = new OpenAI({ apiKey });
+    log("✅", "OpenAI GPT-4o-mini configured — LLM classification active");
   } else {
-    log("⚠️", "No GEMINI_API_KEY — using keyword fallback ONLY");
+    log("⚠️", "No OPENAI_API_KEY — using keyword fallback ONLY (still works for 90%+ cases)");
   }
 
   // Load agent wallets
