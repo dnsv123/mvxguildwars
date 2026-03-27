@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🤖 C5 Agent Arena — OpenHeart Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -12,337 +12,619 @@
       background: #0a0a1a;
       color: #e0e0f0;
       min-height: 100vh;
-      padding: 20px;
+      overflow-x: hidden;
     }
 
+    /* ═══ HEADER ═══ */
     .header {
       text-align: center;
-      margin-bottom: 30px;
+      padding: 24px 20px 16px;
+      background: linear-gradient(180deg, #12122a 0%, #0a0a1a 100%);
+      border-bottom: 1px solid #1a1a3a;
     }
     .header h1 {
-      font-size: 2.2em;
-      font-weight: 900;
-      background: linear-gradient(135deg, #00ff87, #60efff);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 1.4em;
+      background: linear-gradient(135deg, #00ff87, #60efff, #a855f7);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      animation: shimmer 3s ease-in-out infinite;
     }
-    .header .subtitle {
-      color: #888;
-      font-size: 0.95em;
+    @keyframes shimmer {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.3); }
     }
+    .header .subtitle { color: #666; font-size: 0.85em; }
 
+    /* ═══ STATE BANNER ═══ */
     .state-banner {
       text-align: center;
-      padding: 30px;
+      padding: 20px;
+      margin: 16px 20px;
       border-radius: 16px;
-      margin-bottom: 24px;
-      font-size: 3em;
-      font-weight: 900;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 1.8em;
       letter-spacing: 4px;
-      transition: all 0.3s ease;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
     }
     .state-green {
-      background: linear-gradient(135deg, #00ff8720, #00ff8708);
+      background: radial-gradient(ellipse at center, #00ff8715, #00ff8705);
       border: 2px solid #00ff87;
       color: #00ff87;
-      box-shadow: 0 0 40px #00ff8730;
+      box-shadow: 0 0 60px #00ff8730, inset 0 0 30px #00ff8710;
     }
     .state-red {
-      background: linear-gradient(135deg, #ff445520, #ff445508);
+      background: radial-gradient(ellipse at center, #ff445515, #ff445505);
       border: 2px solid #ff4455;
       color: #ff4455;
-      box-shadow: 0 0 40px #ff445530;
+      box-shadow: 0 0 60px #ff445530, inset 0 0 30px #ff445510;
     }
     .state-unknown {
-      background: linear-gradient(135deg, #ffaa0020, #ffaa0008);
+      background: radial-gradient(ellipse at center, #ffaa0015, #ffaa0005);
       border: 2px solid #ffaa00;
       color: #ffaa00;
     }
 
+    /* ═══ STATS ═══ */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      padding: 0 20px;
+      margin-bottom: 20px;
     }
     .stat-card {
-      background: #12122a;
+      background: linear-gradient(145deg, #12122a, #16163a);
       border: 1px solid #2a2a4a;
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       text-align: center;
+      transition: transform 0.2s;
     }
+    .stat-card:hover { transform: translateY(-2px); }
     .stat-card .value {
-      font-size: 2.4em;
-      font-weight: 900;
-      background: linear-gradient(135deg, #60efff, #00ff87);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 1.4em;
+      color: #60efff;
     }
-    .stat-card .label {
-      font-size: 0.85em;
+    .stat-card .label { font-size: 0.75em; color: #666; margin-top: 6px; }
+
+    /* ═══ AGENT ARENA (pixel art) ═══ */
+    .arena {
+      margin: 0 20px 20px;
+      background: linear-gradient(180deg, #0d1117 0%, #161b22 50%, #1a2233 100%);
+      border: 2px solid #2a2a4a;
+      border-radius: 16px;
+      padding: 20px;
+      position: relative;
+      min-height: 200px;
+      overflow: hidden;
+    }
+    .arena-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.7em;
+      color: #666;
+      margin-bottom: 16px;
+    }
+    .arena-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    /* Pixel Agent */
+    .pixel-agent {
+      width: 80px;
+      text-align: center;
+      position: relative;
+    }
+    .pixel-body {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 6px;
+      position: relative;
+      image-rendering: pixelated;
+    }
+    /* Pixel art tank using CSS */
+    .tank {
+      position: relative;
+      width: 48px;
+      height: 40px;
+      margin: 4px auto;
+    }
+    .tank-body {
+      position: absolute;
+      bottom: 0;
+      left: 4px;
+      width: 40px;
+      height: 20px;
+      border-radius: 4px;
+      transition: background 0.3s;
+    }
+    .tank-turret {
+      position: absolute;
+      bottom: 16px;
+      left: 14px;
+      width: 20px;
+      height: 14px;
+      border-radius: 3px 3px 0 0;
+      transition: background 0.3s;
+    }
+    .tank-barrel {
+      position: absolute;
+      bottom: 24px;
+      left: 34px;
+      width: 14px;
+      height: 4px;
+      border-radius: 0 2px 2px 0;
+      transition: background 0.3s;
+    }
+    .tank-track {
+      position: absolute;
+      bottom: -2px;
+      left: 2px;
+      width: 44px;
+      height: 6px;
+      background: #333;
+      border-radius: 3px;
+    }
+    .tank-track::before, .tank-track::after {
+      content: '';
+      position: absolute;
+      width: 6px; height: 6px;
+      background: #444;
+      border-radius: 50%;
+      top: 0;
+    }
+    .tank-track::before { left: 2px; }
+    .tank-track::after { right: 2px; }
+
+    /* Agent colors */
+    .agent-0 .tank-body, .agent-0 .tank-turret { background: #00ff87; }
+    .agent-0 .tank-barrel { background: #00cc6a; }
+    .agent-1 .tank-body, .agent-1 .tank-turret { background: #60efff; }
+    .agent-1 .tank-barrel { background: #40c0dd; }
+    .agent-2 .tank-body, .agent-2 .tank-turret { background: #a855f7; }
+    .agent-2 .tank-barrel { background: #8844cc; }
+    .agent-3 .tank-body, .agent-3 .tank-turret { background: #f97316; }
+    .agent-3 .tank-barrel { background: #cc5500; }
+    .agent-4 .tank-body, .agent-4 .tank-turret { background: #ec4899; }
+    .agent-4 .tank-barrel { background: #cc2277; }
+    .agent-5 .tank-body, .agent-5 .tank-turret { background: #eab308; }
+    .agent-5 .tank-barrel { background: #bb8800; }
+    .agent-6 .tank-body, .agent-6 .tank-turret { background: #06b6d4; }
+    .agent-6 .tank-barrel { background: #0099bb; }
+    .agent-7 .tank-body, .agent-7 .tank-turret { background: #84cc16; }
+    .agent-7 .tank-barrel { background: #66aa00; }
+    .agent-8 .tank-body, .agent-8 .tank-turret { background: #f43f5e; }
+    .agent-8 .tank-barrel { background: #cc2244; }
+    .agent-9 .tank-body, .agent-9 .tank-turret { background: #8b5cf6; }
+    .agent-9 .tank-barrel { background: #7744dd; }
+
+    /* Animations */
+    .firing .tank-barrel {
+      animation: fire 0.15s ease-out infinite;
+    }
+    @keyframes fire {
+      0% { transform: translateX(0); }
+      50% { transform: translateX(4px); }
+      100% { transform: translateX(0); }
+    }
+    .firing .tank-body {
+      animation: rumble 0.1s ease-in-out infinite;
+    }
+    @keyframes rumble {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-1px); }
+    }
+    .idle .tank-body, .idle .tank-turret, .idle .tank-barrel {
+      filter: brightness(0.4);
+    }
+
+    /* Muzzle flash */
+    .muzzle-flash {
+      position: absolute;
+      bottom: 22px;
+      left: 46px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ffff00;
+      box-shadow: 0 0 8px #ffff00, 0 0 16px #ff8800;
+      animation: flash 0.2s ease-out infinite;
+      display: none;
+    }
+    .firing .muzzle-flash { display: block; }
+    @keyframes flash {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(2); }
+    }
+
+    /* Projectiles */
+    .projectile-trail {
+      position: absolute;
+      top: 50%;
+      right: -200px;
+      width: 200px;
+      height: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    .firing .projectile-trail { display: block; }
+
+    .agent-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.45em;
       color: #888;
       margin-top: 4px;
     }
-
-    .section-title {
-      font-size: 1.2em;
-      font-weight: 700;
-      margin-bottom: 12px;
-      color: #60efff;
+    .agent-stat {
+      font-size: 0.7em;
+      color: #aaa;
+      margin-top: 2px;
+    }
+    .agent-bal {
+      font-size: 0.65em;
+      color: #555;
     }
 
-    .agents-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 24px;
+    /* ═══ TWO-COLUMN LAYOUT ═══ */
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 0 20px;
+      margin-bottom: 20px;
     }
-    .agents-table th {
-      background: #1a1a3a;
-      padding: 10px 12px;
-      text-align: left;
-      font-size: 0.85em;
-      color: #888;
-      border-bottom: 1px solid #2a2a4a;
-    }
-    .agents-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #1a1a3a;
-      font-family: monospace;
-      font-size: 0.9em;
-    }
-    .agents-table tr:hover { background: #15152a; }
+    @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
 
-    .command-log {
+    /* ═══ COMMAND LOG ═══ */
+    .panel {
       background: #12122a;
       border: 1px solid #2a2a4a;
       border-radius: 12px;
       padding: 16px;
-      max-height: 300px;
+    }
+    .panel-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.6em;
+      color: #60efff;
+      margin-bottom: 12px;
+    }
+    .command-log {
+      max-height: 250px;
       overflow-y: auto;
-      margin-bottom: 24px;
     }
     .log-entry {
       padding: 6px 0;
       border-bottom: 1px solid #1a1a2a;
-      font-size: 0.88em;
+      font-size: 0.82em;
       display: flex;
       gap: 8px;
+      align-items: center;
     }
-    .log-entry .time { color: #666; font-family: monospace; min-width: 90px; }
-    .log-entry .cmd { color: #ccc; flex: 1; }
-    .log-entry .result-green { color: #00ff87; font-weight: 700; }
-    .log-entry .result-red { color: #ff4455; font-weight: 700; }
+    .log-entry .time { color: #555; font-family: monospace; min-width: 70px; font-size: 0.85em; }
+    .log-entry .cmd { color: #bbb; flex: 1; }
+    .log-green { color: #00ff87 !important; font-weight: 700; }
+    .log-red { color: #ff4455 !important; font-weight: 700; }
 
-    .config-section {
-      background: #12122a;
-      border: 1px solid #2a2a4a;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 24px;
+    /* ═══ CONFIG ═══ */
+    .config-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      background: #0d0d20;
+      border-bottom: 1px solid #1a1a3a;
+      flex-wrap: wrap;
+      align-items: center;
     }
-    .config-section input, .config-section button {
-      font-family: 'Inter', monospace;
-      font-size: 0.9em;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid #3a3a5a;
+    .config-bar label { font-size: 0.75em; color: #666; }
+    .config-bar input {
+      font-family: monospace;
+      font-size: 0.8em;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #2a2a4a;
       background: #1a1a3a;
       color: #e0e0f0;
-      margin: 4px;
+      flex: 1;
+      min-width: 150px;
     }
-    .config-section button {
+    .btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.55em;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-go {
       background: linear-gradient(135deg, #00ff87, #60efff);
       color: #0a0a1a;
-      font-weight: 700;
-      cursor: pointer;
-      border: none;
     }
-    .config-section button:hover { opacity: 0.9; }
+    .btn-go:hover { transform: scale(1.05); box-shadow: 0 0 20px #00ff8740; }
 
-    .pulse { animation: pulse 2s ease-in-out infinite; }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+    .footer {
+      text-align: center;
+      padding: 16px;
+      color: #333;
+      font-size: 0.75em;
+      font-family: 'Press Start 2P', monospace;
     }
 
-    .footer { text-align: center; color: #444; margin-top: 24px; font-size: 0.8em; }
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a1a; }
+    ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>🤖 Agent Arena — OpenHeart</h1>
-    <div class="subtitle">Challenge 5 | Red Light / Green Light | Live Dashboard</div>
+    <h1>⚔️ AGENT ARENA</h1>
+    <div class="subtitle">Challenge 5 — Red Light / Green Light — 💚 OpenHeart Guild</div>
+  </div>
+
+  <!-- CONFIG BAR -->
+  <div class="config-bar">
+    <label>ADMIN:</label>
+    <input type="text" id="adminAddr" placeholder="erd1... (announced at 15:00)">
+    <label>TARGET:</label>
+    <input type="text" id="targetAddr" placeholder="erd1... (announced at 15:00)">
+    <label>API:</label>
+    <input type="text" id="apiUrl" value="https://api.battleofnodes.com" style="max-width:250px;">
+    <button class="btn btn-go" onclick="startMonitoring()">▶ START</button>
   </div>
 
   <!-- STATE BANNER -->
-  <div id="stateBanner" class="state-banner state-unknown pulse">
-    ⏳ WAITING FOR START
+  <div id="stateBanner" class="state-banner state-unknown">
+    ⏳ STANDBY
   </div>
 
   <!-- STATS -->
   <div class="stats-grid">
     <div class="stat-card">
       <div class="value" id="totalSent">0</div>
-      <div class="label">Total Sent (Green)</div>
+      <div class="label">✅ Permitted TXs</div>
     </div>
     <div class="stat-card">
       <div class="value" id="score">0</div>
-      <div class="label">Estimated Score</div>
+      <div class="label">🏆 Est. Score</div>
     </div>
     <div class="stat-card">
-      <div class="value" id="txPerSec">0</div>
-      <div class="label">TX/s (current)</div>
+      <div class="value" id="txPerSec">0.0</div>
+      <div class="label">⚡ TX/s</div>
     </div>
     <div class="stat-card">
       <div class="value" id="errors">0</div>
-      <div class="label">Errors</div>
-    </div>
-    <div class="stat-card">
-      <div class="value" id="greenTime">0s</div>
-      <div class="label">Green Time</div>
+      <div class="label">❌ Errors</div>
     </div>
     <div class="stat-card">
       <div class="value" id="commandCount">0</div>
-      <div class="label">Commands Received</div>
+      <div class="label">📡 Commands</div>
+    </div>
+    <div class="stat-card">
+      <div class="value" id="timeLeft">--:--</div>
+      <div class="label">⏰ Time Left</div>
     </div>
   </div>
 
-  <!-- CONFIG -->
-  <div class="config-section">
-    <div class="section-title">⚙️ Configuration</div>
-    <div style="margin-top: 8px;">
-      <label>Admin Wallet:</label>
-      <input type="text" id="adminAddr" placeholder="erd1..." size="50">
-      <label style="margin-left: 12px;">Target Wallet:</label>
-      <input type="text" id="targetAddr" placeholder="erd1..." size="50">
-      <button onclick="startMonitoring()">▶ Start Monitoring</button>
+  <!-- AGENT ARENA -->
+  <div class="arena">
+    <div class="arena-title">🎮 AGENT FLEET</div>
+    <div class="arena-grid" id="arenaGrid"></div>
+  </div>
+
+  <!-- COLUMNS: LOG + TIMELINE -->
+  <div class="columns">
+    <div class="panel">
+      <div class="panel-title">📡 COMMAND LOG</div>
+      <div class="command-log" id="commandLog">
+        <div class="log-entry"><span class="time">--:--</span><span class="cmd" style="color:#555;">Awaiting admin commands...</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">📊 STATE TIMELINE</div>
+      <canvas id="timelineCanvas" width="400" height="200" style="width:100%;border-radius:8px;background:#0d0d20;"></canvas>
     </div>
   </div>
 
-  <!-- AGENTS TABLE -->
-  <div class="section-title">🤖 Agent Fleet</div>
-  <table class="agents-table">
-    <thead>
-      <tr><th>#</th><th>Address</th><th>Balance</th><th>Nonce</th><th>Sent</th><th>Status</th></tr>
-    </thead>
-    <tbody id="agentsBody">
-      <tr><td colspan="6" style="text-align:center; color:#666;">Loading agents...</td></tr>
-    </tbody>
-  </table>
-
-  <!-- COMMAND LOG -->
-  <div class="section-title">📡 Command Log</div>
-  <div class="command-log" id="commandLog">
-    <div class="log-entry">
-      <span class="time">--:--:--</span>
-      <span class="cmd">Waiting for admin commands...</span>
-    </div>
-  </div>
-
-  <div class="footer">
-    💚 OpenHeart Guild | Challenge 5: Agent Arena | Powered by Gemini AI
-  </div>
+  <div class="footer">💚 OPENHEART GUILD — POWERED BY GEMINI AI 🤖</div>
 
   <script>
-    const API = 'https://api.battleofnodes.com';
-    let adminAddr = '';
-    let targetAddr = '';
-    let monitoring = false;
-    let lastTxHash = '';
-    let commands = [];
-    let state = 'UNKNOWN';
+    const COLORS = ['#00ff87','#60efff','#a855f7','#f97316','#ec4899','#eab308','#06b6d4','#84cc16','#f43f5e','#8b5cf6'];
+    let apiUrl = 'https://api.battleofnodes.com';
+    let adminAddr = '', targetAddr = '';
+    let monitoring = false, lastTxHash = '';
+    let state = 'UNKNOWN', commands = [];
+    let agents = [];
+    let timeline = []; // {time, state}
+
+    // Build pixel tanks
+    function buildArena(count) {
+      const grid = document.getElementById('arenaGrid');
+      grid.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const div = document.createElement('div');
+        div.className = `pixel-agent agent-${i} idle`;
+        div.id = `agent-${i}`;
+        div.innerHTML = `
+          <div class="tank">
+            <div class="muzzle-flash"></div>
+            <div class="tank-barrel"></div>
+            <div class="tank-turret"></div>
+            <div class="tank-body"></div>
+            <div class="tank-track"></div>
+          </div>
+          <div class="agent-label">A-${String(i).padStart(2,'0')}</div>
+          <div class="agent-stat" id="aStat${i}">0 tx</div>
+          <div class="agent-bal" id="aBal${i}">-- EGLD</div>
+        `;
+        grid.appendChild(div);
+      }
+    }
+
+    function setAgentState(isFiring) {
+      for (let i = 0; i < 10; i++) {
+        const el = document.getElementById(`agent-${i}`);
+        if (!el) continue;
+        el.className = `pixel-agent agent-${i} ${isFiring ? 'firing' : 'idle'}`;
+      }
+    }
 
     function startMonitoring() {
       adminAddr = document.getElementById('adminAddr').value.trim();
       targetAddr = document.getElementById('targetAddr').value.trim();
-      if (!adminAddr || !targetAddr) { alert('Set both addresses!'); return; }
+      apiUrl = document.getElementById('apiUrl').value.trim() || apiUrl;
+      if (!adminAddr || !targetAddr) { alert('Set both Admin and Target addresses!'); return; }
       monitoring = true;
+      buildArena(10);
       pollAdmin();
-      pollLeaderboard();
+      pollAgents();
+      updateTimer();
     }
+
+    // Init arena on load
+    buildArena(10);
 
     async function pollAdmin() {
       if (!monitoring) return;
       try {
-        const res = await fetch(`${API}/accounts/${adminAddr}/transactions?receiver=${targetAddr}&size=5&order=desc`);
+        const res = await fetch(`${apiUrl}/accounts/${adminAddr}/transactions?receiver=${targetAddr}&size=10&order=desc`);
         const txs = await res.json();
         if (Array.isArray(txs)) {
-          for (const tx of txs) {
-            if (tx.txHash === lastTxHash) break;
+          for (const tx of txs.reverse()) {
+            if (tx.txHash === lastTxHash) continue;
             const data = atob(tx.data || '');
             if (!data) continue;
 
-            // Simple classification for display
             const lower = data.toLowerCase();
-            const isGreen = /\b(go|start|begin|green|fire|send|resume|run|launch|proceed)\b/.test(lower);
-            const isRed = /\b(stop|halt|red|freeze|wait|pause|cease|hold|end)\b/.test(lower);
-            const newState = isGreen ? 'GREEN' : isRed ? 'RED' : state;
+            const greenSignals = ['go','start','begin','green','fire','send','resume','run','launch','proceed','activate','engage','release','unleash','continue'];
+            const redSignals = ['stop','halt','red','freeze','wait','pause','cease','hold','end','brake','suspend','terminate','abort','deactivate','stand down'];
 
+            const hasNeg = /\b(don'?t|do not|never|no)\b/i.test(lower);
+            let gScore = 0, rScore = 0;
+            for (const w of greenSignals) if (lower.includes(w)) gScore++;
+            for (const w of redSignals) if (lower.includes(w)) rScore++;
+            if (hasNeg) [gScore, rScore] = [rScore, gScore];
+
+            const newState = gScore > rScore ? 'GREEN' : rScore > gScore ? 'RED' : state;
             commands.unshift({ time: new Date().toISOString().slice(11,19), text: data, result: newState });
-            if (commands.length > 50) commands.pop();
-            state = newState;
+            if (commands.length > 100) commands.pop();
+
+            if (newState !== state) {
+              state = newState;
+              timeline.push({ time: Date.now(), state });
+            }
             lastTxHash = tx.txHash;
-            updateUI();
-            break;
           }
+          updateUI();
         }
-      } catch (e) { console.error('Poll error:', e); }
+      } catch (e) { console.error('Poll err:', e); }
       setTimeout(pollAdmin, 2000);
     }
 
-    async function pollLeaderboard() {
+    async function pollAgents() {
       if (!monitoring) return;
-      // Refresh agent data
       try {
-        const agentsRes = await fetch('c5_agents.json');
-        if (agentsRes.ok) {
-          const agents = await agentsRes.json();
-          const tbody = document.getElementById('agentsBody');
-          let html = '';
-          for (let i = 0; i < agents.length; i++) {
-            try {
-              const info = await fetch(`${API}/accounts/${agents[i].address}`);
-              const data = await info.json();
-              const bal = (Number(BigInt(data.balance || '0')) / 1e18).toFixed(2);
-              html += `<tr>
-                <td>${i}</td>
-                <td>${agents[i].address.substring(0,20)}...</td>
-                <td>${bal} EGLD</td>
-                <td>${data.nonce || 0}</td>
-                <td>-</td>
-                <td style="color: ${state === 'GREEN' ? '#00ff87' : '#ff4455'}">●</td>
-              </tr>`;
-            } catch { 
-              html += `<tr><td>${i}</td><td>${agents[i].address.substring(0,20)}...</td><td colspan="4">fetch error</td></tr>`;
-            }
-          }
-          tbody.innerHTML = html;
-        }
+        const res = await fetch(`c5_agents.json`);
+        if (res.ok) agents = await res.json();
       } catch {}
-      setTimeout(pollLeaderboard, 10000);
+
+      for (let i = 0; i < agents.length; i++) {
+        try {
+          const res = await fetch(`${apiUrl}/accounts/${agents[i].address}`);
+          const d = await res.json();
+          const bal = (Number(BigInt(d.balance || '0')) / 1e18).toFixed(2);
+          const stat = document.getElementById(`aStat${i}`);
+          const balEl = document.getElementById(`aBal${i}`);
+          if (stat) stat.textContent = `n:${d.nonce}`;
+          if (balEl) balEl.textContent = `${bal} E`;
+        } catch {}
+      }
+      setTimeout(pollAgents, 8000);
+    }
+
+    function updateTimer() {
+      const r1End = new Date('2026-03-27T16:30:00Z').getTime();
+      const r2Start = new Date('2026-03-27T17:00:00Z').getTime();
+      const r2End = new Date('2026-03-27T17:30:00Z').getTime();
+      const now = Date.now();
+
+      let remaining;
+      if (now < r1End) remaining = r1End - now;
+      else if (now < r2Start) remaining = 0; // break
+      else if (now < r2End) remaining = r2End - now;
+      else remaining = 0;
+
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      document.getElementById('timeLeft').textContent = `${m}:${String(s).padStart(2,'0')}`;
+      setTimeout(updateTimer, 1000);
     }
 
     function updateUI() {
       // State banner
       const banner = document.getElementById('stateBanner');
-      banner.textContent = state === 'GREEN' ? '🟢 GREEN LIGHT — SENDING' :
-                           state === 'RED' ? '🔴 RED LIGHT — STOPPED' : '⏳ WAITING';
-      banner.className = `state-banner state-${state.toLowerCase()} ${state === 'GREEN' ? 'pulse' : ''}`;
+      if (state === 'GREEN') {
+        banner.textContent = '🟢 GREEN LIGHT — FIRE!';
+        banner.className = 'state-banner state-green';
+        setAgentState(true);
+      } else if (state === 'RED') {
+        banner.textContent = '🔴 RED LIGHT — HOLD!';
+        banner.className = 'state-banner state-red';
+        setAgentState(false);
+      } else {
+        banner.textContent = '⏳ STANDBY';
+        banner.className = 'state-banner state-unknown';
+        setAgentState(false);
+      }
 
-      // Command count
       document.getElementById('commandCount').textContent = commands.length;
 
       // Command log
       const logEl = document.getElementById('commandLog');
-      logEl.innerHTML = commands.map(c => `
+      logEl.innerHTML = commands.slice(0, 30).map(c => `
         <div class="log-entry">
           <span class="time">${c.time}</span>
-          <span class="cmd">${c.text.substring(0, 60)}</span>
-          <span class="result-${c.result.toLowerCase()}">${c.result}</span>
+          <span class="cmd">${c.text.substring(0, 50)}</span>
+          <span class="${c.result === 'GREEN' ? 'log-green' : 'log-red'}">${c.result === 'GREEN' ? '🟢' : '🔴'} ${c.result}</span>
         </div>
       `).join('');
+
+      // Timeline canvas
+      drawTimeline();
+    }
+
+    function drawTimeline() {
+      const canvas = document.getElementById('timelineCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = 200;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (timeline.length < 2) return;
+
+      const startTime = timeline[0].time;
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      for (let i = 0; i < timeline.length; i++) {
+        const entry = timeline[i];
+        const next = timeline[i + 1];
+        const x1 = ((entry.time - startTime) / duration) * canvas.width;
+        const x2 = next ? ((next.time - startTime) / duration) * canvas.width : canvas.width;
+
+        ctx.fillStyle = entry.state === 'GREEN' ? '#00ff8730' : '#ff445530';
+        ctx.fillRect(x1, 0, x2 - x1, canvas.height);
+
+        ctx.fillStyle = entry.state === 'GREEN' ? '#00ff87' : '#ff4455';
+        ctx.fillRect(x1, 0, 2, canvas.height);
+      }
     }
   </script>
 </body>
